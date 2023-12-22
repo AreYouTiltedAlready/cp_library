@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
 
-template <typename T, auto Op>
+template <typename T, T (*Op)(T, T)>
 class SparseTable {
  public:
   explicit SparseTable(const std::vector<T>& values) {

@@ -1,7 +1,8 @@
 #include <functional>
 #include <vector>
 
-template <typename T, typename M, auto Op, auto Mapping, auto Composition>
+template <typename T, typename M, T (*Op)(T, T), T (*Mapping)(T, M),
+          M (*Composition)(M, M)>
 class LazySegmentTree {
  public:
   explicit LazySegmentTree(int n) : n_(n), tree_(n * 2), tag_(n * 2) {}

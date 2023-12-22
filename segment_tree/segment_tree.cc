@@ -1,7 +1,7 @@
 #include <functional>
 #include <vector>
 
-template <typename T, auto Op>
+template <typename T, T (*Op)(T, T)>
 class SegmentTree {
  public:
   explicit SegmentTree(int n) : n_(n), tree_(n * 2) {}
