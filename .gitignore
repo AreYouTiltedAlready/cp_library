@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# Auxiliary files to test all this stuff
+main*
+local_test*
+in.txt
+out.txt
