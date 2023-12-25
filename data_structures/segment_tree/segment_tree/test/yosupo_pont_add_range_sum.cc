@@ -1,8 +1,33 @@
-#include <functional>
-#include <vector>
+#include <bits/stdc++.h>
 
-template <typename T, T (*Op)(T, T)>
+namespace {
+
+template <class Fun>
+class y_combinator_result {
+  Fun fun_;
+
+ public:
+  template <class T>
+  explicit y_combinator_result(T&& fun) : fun_(std::forward<T>(fun)) {}
+
+  template <class... Args>
+  decltype(auto) operator()(Args&&... args) {
+    return fun_(std::ref(*this), std::forward<Args>(args)...);
+  }
+};
+
+template <class Fun>
+decltype(auto) y_combinator(Fun&& fun) {
+  return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
+}
+
+template <typename T, auto Op>
 class SegmentTree {
+  static_assert(
+      std::is_convertible_v<decltype(Op), T (*)(T, T)> ||
+          std::is_convertible_v<decltype(Op), T (*)(const T&, const T&)>,
+      "Op must work as T(T, T)");
+
  public:
   explicit SegmentTree(int n) : n_(n), tree_(n * 2) {}
 
@@ -31,7 +56,6 @@ class SegmentTree {
 
   int FindFirst(int left, int right, const Predicate& pred) {
     return FindFirst(0, 0, n_, left, right, pred);
-    ;
   }
 
   int FindLast(int left, int right, const Predicate& pred) {
@@ -159,3 +183,44 @@ class SegmentTree {
   int n_;
   std::vector<T> tree_;
 };
+
+inline int64_t Op(int64_t lhs, int64_t rhs) { return lhs + rhs; }
+
+// https://judge.yosupo.jp/problem/point_add_range_sum
+// https://judge.yosupo.jp/submission/179407
+void RunCase([[maybe_unused]] int testcase) {
+  int n;
+  int q;
+  std::cin >> n >> q;
+
+  std::vector<int64_t> v(n);
+  for (int i = 0; i < n; ++i) { std::cin >> v[i]; }
+
+  SegmentTree<int64_t, Op> segment_tree(v);
+  while (q--) {
+    int t;
+    int x;
+    int y;
+    std::cin >> t >> x >> y;
+    if (t == 0) {
+      segment_tree.Apply(x, v[x] += y);
+    } else {
+      std::cout << segment_tree.Get(x, y) << "\n";
+    }
+  }
+}
+
+void Main() {
+  int testcases = 1;
+  // std::cin >> testcases;
+  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+}
+
+}  // namespace
+
+int main() {
+  std::ios_base::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+  Main();
+  return 0;
+}

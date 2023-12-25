@@ -57,6 +57,11 @@ using RmqSolverMax = RmqSolver<T, RmqMode::kMax>;
 template <typename T>
 using RmqSolverMin = RmqSolver<T, RmqMode::kMin>;
 
+// Okay, this is just a generalization of basic hld (on top of hld, we maintain
+// euler tour for lca in $O(1))
+// Note: similar to hld, one must call Build() before queries
+// In case of construction from adjacency list, the Build() is called immediately
+// All queries except of LA are O(1) now
 class LcaForest {
  public:
   explicit LcaForest(int n)

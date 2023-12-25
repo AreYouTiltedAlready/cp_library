@@ -23,6 +23,10 @@ class Barrett {
   uint32_t mod;
 };
 
+// Static modint class (for 32-bit compile-time modulos)
+// Uses barrett reduction for multiplication. Quite fast in practice.
+// Usage:
+// using mint = StaticModint<998244353>; // whatever (1000000007, ...)
 template <uint32_t kMod>
 class StaticModint {
  public:

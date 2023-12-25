@@ -53,8 +53,6 @@ public:
       int j = (dft_size - i) & (dft_size - 1);
       const Complex lhs_conj = std::conj(dft_lhs[j]);
       const Complex rhs_conj = std::conj(dft_rhs[j]);
-      // low[i] = (low[i] - conj) / 2
-      // high[i] = (low[i] + conj) / 2i
       edges[j] =
           ((dft_lhs[i] + lhs_conj) * (dft_rhs[i] + rhs_conj)) *
           Complex(0.25 / static_cast<T>(dft_size), 0.0)

@@ -23,6 +23,14 @@ class Barrett {
   uint32_t mod;
 };
 
+// Dynamic modint class (for 32-bit modulos which are not known in compile time)
+// Uses barrett reduction for multiplication. Quite fast in practice.
+// Usage:
+// using Mint = DynamicModint<-1>;
+// Mint::SetMod(mod_1);
+// ....
+// using Mint = DynamicModint<0>;
+// Mint::SetMod(mod_2);
 template <int M>
 class DynamicModint {
  public:
@@ -36,18 +44,14 @@ class DynamicModint {
   template <typename T,
             typename std::enable_if_t<
                 std::is_integral_v<T> && std::is_signed_v<T>, void>* = nullptr>
-  DynamicModint(T value)
-      : value_(  // NOLINT(*-explicit-constructor)
-            value % kMod) {
+  DynamicModint(T value) : value_(value % kMod) {
     if (value < 0) { value += kMod; }
   }
 
   template <typename T, typename std::enable_if_t<std::is_integral_v<T> &&
                                                       std::is_unsigned_v<T>,
                                                   void>* = nullptr>
-  DynamicModint(T value)
-      :  // NOLINT(*-explicit-constructor)
-        value_(value % kMod) {}
+  DynamicModint(T value) : value_(value % kMod) {}
 
   using Mint = DynamicModint<M>;
 

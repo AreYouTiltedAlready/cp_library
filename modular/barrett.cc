@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <limits>
 
+// Barrett modular reduction for 32- and 64-bit modulos
+// $mod$ might be runtime variable
 class Barrett {
  public:
   constexpr explicit Barrett(uint32_t mod)
