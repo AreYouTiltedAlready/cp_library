@@ -7,9 +7,8 @@
 // $O(\alpha(n))$ per query (amortized)
 
 class Dsu {
-public:
-  explicit Dsu(int n)
-      : weight_(n, 1), parent_(n) {
+ public:
+  explicit Dsu(int n) : weight_(n, 1), parent_(n) {
     std::iota(parent_.begin(), parent_.end(), 0);
   }
 
@@ -20,34 +19,27 @@ public:
     return v;
   }
 
-  int Weight(int v) const {
-    return weight_[Find(v)];
-  }
+  int Weight(int v) const { return weight_[Find(v)]; }
 
-  bool Same(int u, int v) const {
-    return Find(u) == Find(v);
-  }
+  bool Same(int u, int v) const { return Find(u) == Find(v); }
 
   void Join(int u, int v) {
     u = Find(u);
     v = Find(v);
     if (u == v) { return; }
 
-    if (weight_[u] > weight_[v]) {
-      std::swap(u, v);
-    }
+    if (weight_[u] > weight_[v]) { std::swap(u, v); }
     parent_[u] = v;
     weight_[v] += weight_[u];
   }
 
-private:
+ private:
   std::vector<int> weight_;
   mutable std::vector<int> parent_;
 };
 
 // https://judge.yosupo.jp/problem/unionfind
 // https://judge.yosupo.jp/submission/178571
-
 int main() {
   std::ios_base::sync_with_stdio(false);
   std::cin.tie(nullptr);

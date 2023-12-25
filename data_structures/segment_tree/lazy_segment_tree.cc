@@ -85,12 +85,8 @@ class LazySegmentTree {
     Push(x, l, r);
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
-    if (ql < mid) {
-      Apply(x + 1, l, mid, ql, qr, tag);
-    }
-    if (qr > mid) {
-      Apply(z, mid, r, ql, qr, tag);
-    }
+    if (ql < mid) { Apply(x + 1, l, mid, ql, qr, tag); }
+    if (qr > mid) { Apply(z, mid, r, ql, qr, tag); }
     Pull(x, z);
   }
 
@@ -111,35 +107,25 @@ class LazySegmentTree {
   }
 
   [[nodiscard]] T Get(int x, int l, int r, int ql, int qr) {
-    if (ql <= l && r <= qr) {
-      return tree_[x];
-    }
+    if (ql <= l && r <= qr) { return tree_[x]; }
     Push(x, l, r);
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
-    if (qr <= mid) {
-      return Get(x + 1, l, mid, ql, qr);
-    }
-    if (ql >= mid) {
-      return Get(z, mid, r, ql, qr);
-    }
+    if (qr <= mid) { return Get(x + 1, l, mid, ql, qr); }
+    if (ql >= mid) { return Get(z, mid, r, ql, qr); }
     return Op(Get(x + 1, l, mid, ql, qr), Get(z, mid, r, ql, qr));
   }
 
   int FindFirst(int x, int l, int r, int ql, int qr, const Predicate& pred) {
     if (ql <= l && r <= qr) {
-      if (!pred(tree_[x])) {
-        return -1;
-      }
+      if (!pred(tree_[x])) { return -1; }
       return FindFirstKnowingly(x, l, r, pred);
     }
     Push(x, l, r);
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
     int result = -1;
-    if (ql < mid) {
-      result = FindFirst(x + 1, l, mid, ql, qr, pred);
-    }
+    if (ql < mid) { result = FindFirst(x + 1, l, mid, ql, qr, pred); }
     if (result == -1 && qr > mid) {
       result = FindFirst(z, mid, r, ql, qr, pred);
     }
@@ -148,18 +134,14 @@ class LazySegmentTree {
 
   int FindLast(int x, int l, int r, int ql, int qr, const Predicate& pred) {
     if (ql <= l && r <= qr) {
-      if (!pred(tree_[x])) {
-        return -1;
-      }
+      if (!pred(tree_[x])) { return -1; }
       return FindLastKnowingly(x, l, r, pred);
     }
     Push(x, l, r);
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
     int result = -1;
-    if (qr > mid) {
-      result = FindLast(z, mid, r, ql, qr, pred);
-    }
+    if (qr > mid) { result = FindLast(z, mid, r, ql, qr, pred); }
     if (result == -1 && ql < mid) {
       result = FindLast(x + 1, l, mid, ql, qr, pred);
     }

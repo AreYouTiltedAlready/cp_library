@@ -1,6 +1,12 @@
-#include <iostream>
 #include <vector>
 
+// Basic cache-friendly implementation of sparse table
+// $Op$ might be just a pointer to function, if you want to pass lambda, you can
+// do something like:
+// auto my_lambda = [](const T& lhs, const T& rhs) -> T { ... };
+// SparseTable<T, static_cast<T(*)(T, T)>(my_lambda)> sparse_table(...);
+// Remember that it works for idempodent binary operations only
+// Time: $O(n\log n)$/$O(1)$, memory usage is $O(n\log n)
 template <typename T, T (*Op)(T, T)>
 class SparseTable {
  public:
@@ -8,9 +14,7 @@ class SparseTable {
     const int n = static_cast<int>(values.size());  // n = 0 is not allowed
     const int log = std::__lg(n * 2);
     matrix_.resize(log);
-    for (int i = 0; i < log; ++i) {
-      matrix_[i].resize(n - (1 << i) + 1);
-    }
+    for (int i = 0; i < log; ++i) { matrix_[i].resize(n - (1 << i) + 1); }
     std::copy(values.cbegin(), values.cend(), matrix_.front().begin());
     for (int i = 1; i < log; ++i) {
       for (int j = 0; j < n - (1 << i) + 1; ++j) {
@@ -29,32 +33,3 @@ class SparseTable {
  private:
   std::vector<std::vector<T>> matrix_;
 };
-
-// https://judge.yosupo.jp/problem/staticrmq
-// https://judge.yosupo.jp/submission/178572
-
-int main() {
-  std::ios_base::sync_with_stdio(false);
-  std::cin.tie(nullptr);
-
-  int n;
-  int q;
-  std::cin >> n >> q;
-
-  std::vector<int> v(n);
-  for (int& i : v) {
-    std::cin >> i;
-  }
-
-  auto Merger = [](int i, int j) -> int { return i < j ? i : j; };
-  SparseTable<int, static_cast<int (*)(int, int)>(Merger)> sparse_table(v);
-
-  for (int i = 0; i < q; ++i) {
-    int first;
-    int last;
-    std::cin >> first >> last;
-    std::cout << sparse_table.Get(first, last) << "\n";
-  }
-
-  return 0;
-}

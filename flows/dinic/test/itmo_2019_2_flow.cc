@@ -1,7 +1,31 @@
-#include <limits>
-#include <optional>
-#include <type_traits>
-#include <vector>
+#include <bits/extc++.h>
+#include <bits/stdc++.h>
+
+#include <ext/pb_ds/priority_queue.hpp>
+#include <functional>
+#include <utility>
+
+namespace {
+
+template <class Fun>
+class y_combinator_result {
+  Fun fun_;
+
+ public:
+  template <class T>
+  explicit y_combinator_result(T&& fun) : fun_(std::forward<T>(fun)) {}
+
+  template <class... Args>
+  decltype(auto) operator()(Args&&... args) {
+    return fun_(std::ref(*this), std::forward<Args>(args)...);
+  }
+};
+
+template <class Fun>
+decltype(auto) y_combinator(Fun&& fun) {
+  return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
+}
+
 
 template <typename T>
 class simple_queue {
@@ -26,16 +50,14 @@ class simple_queue {
 template <typename T,
           typename std::enable_if_t<
               std::is_signed_v<T> && std::is_integral_v<T>, void>* = nullptr>
-class Network {
+class FlowGraph {
  public:
   struct Edge {
-    Edge() : from(0), to(0), capacity(0), flow(0) {}
-    Edge(int from, int to, T capacity)
-        : capacity(capacity), flow(0), from(from), to(to) {}
+    Edge() : from(0), to(0), cap(0), flow(0) {}
+    Edge(int from, int to, T cap)
+        : cap(cap), flow(0), from(from), to(to) {}
 
-    T Residual() const { return capacity - flow; }
-
-    T capacity;
+    T cap;
     T flow;
     int from;
     int to;
@@ -45,27 +67,20 @@ class Network {
     int id = static_cast<int>(edges_.size());
     edges_.emplace_back(from, to, capacity);
     edges_.emplace_back(to, from, rev_capacity);
-    adj_list_[from].push_back(id);
-    adj_list_[to].push_back(id + 1);
+    g_[from].push_back(id);
+    g_[to].push_back(id + 1);
     return id;
   }
 
-  explicit Network(int n, int m, int source, int sink)
-      : n_(n),
-        source_(source),
-        sink_(sink),
-        distance_(n),
-        edge_ptr_(n),
-        adj_list_(n) {
+  explicit FlowGraph(int n, int m, int source, int sink)
+      : n_(n), source_(source), sink_(sink), distance_(n), edge_ptr_(n), g_(n) {
     edges_.reserve(m * 2);
   }
 
   T FindKFlow(T k) {
     T flow = 0;
     while (flow < k && Bfs(1)) {
-      while (flow < k && Dfs(source_, 1, 1) == 1) {
-        flow += 1;
-      }
+      while (flow < k && Dfs(source_, 1, 1) == 1) { flow += 1; }
     }
     return flow;
   }
@@ -83,56 +98,39 @@ class Network {
   std::vector<SimpleDecompositionResult> FlowDecomposition() {
     std::fill(edge_ptr_.begin(), edge_ptr_.end(), 0);
     std::vector<char> visited(n_);
-
     auto SimpleDecomposition =
         [&]() -> std::optional<SimpleDecompositionResult> {
-      std::vector<int> edge_ids;
+      std::vector<int> eids;
       std::fill(visited.begin(), visited.end(), 0);
-
       int v = source_;
       while (!visited[v]) {
-        if (v == sink_) {
-          break;
+        if (v == sink_) { break; }
+        for (int& i = edge_ptr_[v]; i < static_cast<int>(g_[v].size()); ++i) {
+          if (const Edge& e = edges_[g_[v][i]]; e.flow > 0) { break; }
         }
-
-        for (int& i = edge_ptr_[v]; i < static_cast<int>(adj_list_[v].size());
-             ++i) {
-          if (const Edge& e = edges_[adj_list_[v][i]]; e.flow > 0) {
-            break;
-          }
-        }
-
-        if (edge_ptr_[v] == static_cast<int>(adj_list_[v].size())) {
+        if (edge_ptr_[v] == static_cast<int>(g_[v].size())) {
           return std::nullopt;
         }
-        int id = adj_list_[v][edge_ptr_[v]];
-        edge_ids.push_back(id);
+        int id = g_[v][edge_ptr_[v]];
+        eids.push_back(id);
 
         visited[v] = true;
         v = edges_[id].to;
       }
-
       if (visited[v]) {
         int id = 0;
-        while (edges_[edge_ids[id]].from != v) {
-          id += 1;
-        }
-        edge_ids.erase(edge_ids.begin(), edge_ids.begin() + id);
+        while (edges_[eids[id]].from != v) { id += 1; }
+        eids.erase(eids.begin(), eids.begin() + id);
       }
-
       std::vector<int> vertices;
-      vertices.reserve(edge_ids.size() + 1);
+      vertices.reserve(eids.size() + 1);
       T path_min = std::numeric_limits<T>::max();
-      for (int id : edge_ids) {
+      for (int id : eids) {
         path_min = std::min(path_min, edges_[id].flow);
         vertices.push_back(edges_[id].from);
       }
-
       vertices.push_back(v);
-      for (int id : edge_ids) {
-        Push(id, -path_min);
-      }
-
+      for (int id : eids) { Push(id, -path_min); }
       return SimpleDecompositionResult(std::move(vertices), path_min);
     };
 
@@ -147,17 +145,13 @@ class Network {
   }
 
   T DinicWithScaling() {
-    T max_capacity = 0;
-    for (const auto& [capacity, flow, from, to] : edges_) {
-      max_capacity = std::max(max_capacity, capacity);
+    T max_cap = 0;
+    for (const auto& [cap, flow, from, to] : edges_) {
+      max_cap = std::max(max_cap, cap);
     }
-
-    if (max_capacity == 0) {
-      return 0;
-    }
-
+    if (max_cap == 0) { return 0; }
     T max_flow = 0;
-    T bound = static_cast<T>(1) << std::__lg(max_capacity);
+    T bound = static_cast<T>(1) << std::__lg(max_cap);
     while (bound > 0) {
       max_flow += Dinic(bound);
       bound /= 2;
@@ -180,25 +174,24 @@ class Network {
 
   [[nodiscard]] const Edge& GetEdge(int id) const { return edges_[id]; }
 
-  std::vector<Edge> MinCut() const {
+  std::vector<int> MinCut() const {
     std::vector<char> reachable(n_);
     y_combinator([&](auto&& dfs, int v) -> void {
       reachable[v] = true;
-      for (int edge_id : adj_list_[v]) {
-        if (const Edge& e = edges_[edge_id];
-            e.Residual() > 0 && !reachable[e.to]) {
+      for (int eid : g_[v]) {
+        if (const Edge& e = edges_[eid];
+            e.cap > e.flow && !reachable[e.to]) {
           dfs(e.to);
         }
       }
     })(source_);
-
-    std::vector<Edge> result;
+    std::vector<int> result;
     result.reserve(edges_.size() / 2);
     for (int i = 0; i < static_cast<int>(edges_.size()); i += 2) {
       const Edge& e(edges_[i]);
       if (reachable[e.from] ^ reachable[e.to]) {
         int id = (reachable[e.from] ? i : i + 1);
-        result.push_back(edges_[id]);
+        result.push_back(id);
       }
     }
 
@@ -209,48 +202,42 @@ class Network {
   bool Bfs(T lower_bound) {
     std::fill(edge_ptr_.begin(), edge_ptr_.end(), 0);
     std::fill(distance_.begin(), distance_.end(), -1);
-
     simple_queue<int> que(n_);
     que.push(source_);
     distance_[source_] = 0;
     while (!que.empty()) {
       int v = que.poll();
-      for (int edge_id : adj_list_[v]) {
-        const Edge& e = edges_[edge_id];
-        if (e.Residual() >= lower_bound && distance_[e.to] == -1) {
+      for (int eid : g_[v]) {
+        const Edge& e = edges_[eid];
+        if (e.cap - e.flow >= lower_bound && distance_[e.to] == -1) {
           que.push(e.to);
           distance_[e.to] = distance_[v] + 1;
         }
       }
     }
-
     return distance_[sink_] != -1;
   }
 
   T Dfs(int v, T least_residual, T lower_bound) {
-    if (v == sink_) {
-      return least_residual;
-    }
-
+    if (v == sink_) { return least_residual; }
     T dfs_result = 0;
-    for (int& i = edge_ptr_[v]; i < static_cast<int>(adj_list_[v].size());
-         ++i) {
-      int edge_id = adj_list_[v][i];
-      if (const Edge& e = edges_[edge_id];
-          distance_[e.to] == distance_[v] + 1 && e.Residual() >= lower_bound &&
-          (dfs_result = Dfs(e.to, std::min(e.Residual(), least_residual),
+    for (int& i = edge_ptr_[v]; i < static_cast<int>(g_[v].size()); ++i) {
+      int eid = g_[v][i];
+      if (const Edge& e = edges_[eid];
+          distance_[e.to] == distance_[v] + 1 &&
+          e.cap - e.flow >= lower_bound &&
+          (dfs_result = Dfs(e.to, std::min(e.cap - e.flow, least_residual),
                             lower_bound)) >= lower_bound) {
-        Push(edge_id, dfs_result);
+        Push(eid, dfs_result);
         return dfs_result;
       }
     }
-
     return 0;
   }
 
-  inline void Push(int edge_id, T flow) {
-    edges_[edge_id].flow += flow;
-    edges_[edge_id ^ 1].flow -= flow;
+  inline void Push(int eid, T flow) {
+    edges_[eid].flow += flow;
+    edges_[eid ^ 1].flow -= flow;
   }
 
   int n_;
@@ -259,5 +246,63 @@ class Network {
   std::vector<Edge> edges_;
   std::vector<int> distance_;
   std::vector<int> edge_ptr_;
-  std::vector<std::vector<int>> adj_list_;
+  std::vector<std::vector<int>> g_;
 };
+
+
+// https://codeforces.com/group/QmrArgR1Jp/contest/322857/problem/C
+// https://codeforces.com/group/QmrArgR1Jp/contest/322857/submission/238806485
+void RunCase([[maybe_unused]] int testcase) {
+  int n;
+  int m;
+  int s;
+  int t;
+  std::cin >> n >> m >> s >> t;
+ 
+  --s;
+  --t;
+  FlowGraph<int> FlowGraph(n, m, s, t);
+  for (int i = 0; i < m; ++i) {
+    int u;
+    int v;
+    std::cin >> u >> v;
+    --u;
+    --v;
+    FlowGraph.AddEdge(u, v, 1);
+  }
+ 
+  int result = FlowGraph.FindKFlow(2);
+  if (result < 2) {
+    std::cout << "NO\n";
+    return;
+  }
+ 
+  auto decomposition = FlowGraph.FlowDecomposition();
+  assert(decomposition.size() == 2);
+  assert(decomposition[0].flow == 1);
+  assert(decomposition[1].flow == 1);
+ 
+  std::cout << "YES\n";
+  for (int id : decomposition[0].vertices) {
+    std::cout << id + 1 << " \n"[id == t];
+  }
+ 
+  for (int id : decomposition[1].vertices) {
+    std::cout << id + 1 << " \n"[id == t];
+  }
+}
+
+void Main() {
+  int testcases = 1;
+  // std::cin >> testcases;
+  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+}
+
+}  // namespace
+
+int main() {
+  std::ios_base::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+  Main();
+  return 0;
+}
