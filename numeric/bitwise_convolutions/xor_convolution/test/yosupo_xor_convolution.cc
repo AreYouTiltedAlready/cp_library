@@ -47,9 +47,13 @@ std::vector<std::common_type_t<T, U>> XorConvolution(std::vector<T> lhs,
   FWHT(rhs);
   using V = std::common_type_t<T, U>;
   std::vector<V> result(n);
-  for (int i = 0; i < n; ++i) { result[i] = static_cast<V>(lhs[i]) * rhs[i]; }
+  for (int i = 0; i < n; ++i) {
+    result[i] = static_cast<V>(lhs[i]) * rhs[i];
+  }
   FWHT(result);
-  for (V& c : result) { c /= n; }
+  for (V& c : result) {
+    c /= n;
+  }
   return result;
 }
 
@@ -91,7 +95,9 @@ class StaticModint {
   StaticModint(T value)
       : value_(  // NOLINT(*-explicit-constructor)
             value % kMod) {
-    if (value < 0) { value += kMod; }
+    if (value < 0) {
+      value += kMod;
+    }
   }
 
   template <typename T, typename std::enable_if_t<std::is_integral_v<T> &&
@@ -122,19 +128,25 @@ class StaticModint {
     Mint result = Raw(1U);
 #pragma GCC unroll(30)
     for (unsigned i = 0; i < 30; ++i) {
-      if (((kMod - 2) >> i) % 2 == 1) { result *= m; }
+      if (((kMod - 2) >> i) % 2 == 1) {
+        result *= m;
+      }
       m *= m;
     }
     return result;
   }
 
   Mint& operator+=(const Mint& other) {
-    if (value_ += other.value_; value_ >= kMod) { value_ -= kMod; }
+    if (value_ += other.value_; value_ >= kMod) {
+      value_ -= kMod;
+    }
     return *this;
   }
 
   Mint& operator-=(const Mint& other) {
-    if (value_ += kMod - other.value_; value_ >= kMod) { value_ -= kMod; }
+    if (value_ += kMod - other.value_; value_ >= kMod) {
+      value_ -= kMod;
+    }
     return *this;
   }
 
@@ -167,7 +179,9 @@ class StaticModint {
   friend Mint Power(Mint m, uint64_t n) {
     Mint result = Raw(1U);
     while (n > 0) {
-      if (n % 2 == 1) { result *= m; }
+      if (n % 2 == 1) {
+        result *= m;
+      }
       m *= m;
       n /= 2;
     }
@@ -203,18 +217,26 @@ void RunCase([[maybe_unused]] int testcase) {
 
   using Mint = StaticModint<998244353>;
   std::vector<Mint> p(m);
-  for (Mint& z : p) { std::cin >> z; }
+  for (Mint& z : p) {
+    std::cin >> z;
+  }
   std::vector<Mint> q(m);
-  for (Mint& z : q) { std::cin >> z; }
+  for (Mint& z : q) {
+    std::cin >> z;
+  }
 
   std::vector<Mint> r = XorConvolution(p, q);
-  for (const Mint& z : r) { std::cout << z << " "; }
+  for (const Mint& z : r) {
+    std::cout << z << " ";
+  }
 }
 
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

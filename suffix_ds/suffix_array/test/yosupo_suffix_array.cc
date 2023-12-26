@@ -28,7 +28,8 @@ decltype(auto) y_combinator(Fun&& fun) {
 #include <vector>
 
 // Thanks to AtCoder library - I'm too lazy to implement SA-IS by myself
-// This is just AtCoder library implementation with some minor changes (which makes it consistent with my codestyle)
+// This is just AtCoder library implementation with some minor changes (which
+// makes it consistent with my codestyle)
 namespace internal {
 std::vector<int> SANaive(const std::vector<int>& s) {
   const int n = static_cast<int>(s.size());
@@ -37,7 +38,9 @@ std::vector<int> SANaive(const std::vector<int>& s) {
   std::sort(sa.begin(), sa.end(), [&](int l, int r) {
     if (l == r) return false;
     while (l < n && r < n) {
-      if (s[l] != s[r]) { return s[l] < s[r]; }
+      if (s[l] != s[r]) {
+        return s[l] < s[r];
+      }
       l += 1;
       r += 1;
     }
@@ -54,7 +57,9 @@ std::vector<int> SADoubling(const std::vector<int>& s) {
   std::iota(sa.begin(), sa.end(), 0);
   for (int k = 1; k < n; k *= 2) {
     auto Compare = [&](int x, int y) {
-      if (rank[x] != rank[y]) { return rank[x] < rank[y]; }
+      if (rank[x] != rank[y]) {
+        return rank[x] < rank[y];
+      }
       int rx = x + k < n ? rank[x + k] : -1;
       int ry = y + k < n ? rank[y + k] : -1;
       return rx < ry;
@@ -85,8 +90,12 @@ std::vector<int> SA_IS(const std::vector<int>& s, int upper) {
       return {1, 0};
     }
   }
-  if (n < THRESHOLD_NAIVE) { return SANaive(s); }
-  if (n < THRESHOLD_DOUBLING) { return SADoubling(s); }
+  if (n < THRESHOLD_NAIVE) {
+    return SANaive(s);
+  }
+  if (n < THRESHOLD_DOUBLING) {
+    return SADoubling(s);
+  }
 
   std::vector<int> sa(n);
   std::vector<bool> ls(n);
@@ -104,7 +113,9 @@ std::vector<int> SA_IS(const std::vector<int>& s, int upper) {
   }
   for (int i = 0; i <= upper; i++) {
     sum_s[i] += sum_l[i];
-    if (i < upper) { sum_l[i + 1] += sum_s[i]; }
+    if (i < upper) {
+      sum_l[i + 1] += sum_s[i];
+    }
   }
 
   auto Induce = [&](const std::vector<int>& lms) {
@@ -112,32 +123,42 @@ std::vector<int> SA_IS(const std::vector<int>& s, int upper) {
     std::vector<int> buf(upper + 1);
     std::copy(sum_s.begin(), sum_s.end(), buf.begin());
     for (int d : lms) {
-      if (d == n) { continue; }
+      if (d == n) {
+        continue;
+      }
       sa[buf[s[d]]++] = d;
     }
     std::copy(sum_l.begin(), sum_l.end(), buf.begin());
     sa[buf[s[n - 1]]++] = n - 1;
     for (int i = 0; i < n; i++) {
       int v = sa[i];
-      if (v >= 1 && !ls[v - 1]) { sa[buf[s[v - 1]]++] = v - 1; }
+      if (v >= 1 && !ls[v - 1]) {
+        sa[buf[s[v - 1]]++] = v - 1;
+      }
     }
     std::copy(sum_l.begin(), sum_l.end(), buf.begin());
     for (int i = n - 1; i >= 0; i--) {
       int v = sa[i];
-      if (v >= 1 && ls[v - 1]) { sa[--buf[s[v - 1] + 1]] = v - 1; }
+      if (v >= 1 && ls[v - 1]) {
+        sa[--buf[s[v - 1] + 1]] = v - 1;
+      }
     }
   };
 
   std::vector<int> lms_map(n + 1, -1);
   int m = 0;
   for (int i = 1; i < n; i++) {
-    if (!ls[i - 1] && ls[i]) { lms_map[i] = m++; }
+    if (!ls[i - 1] && ls[i]) {
+      lms_map[i] = m++;
+    }
   }
 
   std::vector<int> lms;
   lms.reserve(m);
   for (int i = 1; i < n; i++) {
-    if (!ls[i - 1] && ls[i]) { lms.push_back(i); }
+    if (!ls[i - 1] && ls[i]) {
+      lms.push_back(i);
+    }
   }
 
   Induce(lms);
@@ -161,19 +182,25 @@ std::vector<int> SA_IS(const std::vector<int>& s, int upper) {
         same = false;
       } else {
         while (l < end_l) {
-          if (s[l] != s[r]) { break; }
+          if (s[l] != s[r]) {
+            break;
+          }
           l += 1;
           r += 1;
         }
         same &= (l != n && s[l] == s[r]);
       }
-      if (!same) { rec_upper += 1; }
+      if (!same) {
+        rec_upper += 1;
+      }
       rec_s[lms_map[sorted_lms[i]]] = rec_upper;
     }
 
     auto rec_sa = SA_IS<THRESHOLD_NAIVE, THRESHOLD_DOUBLING>(rec_s, rec_upper);
 
-    for (int i = 0; i < m; i++) { sorted_lms[i] = lms[rec_sa[i]]; }
+    for (int i = 0; i < m; i++) {
+      sorted_lms[i] = lms[rec_sa[i]];
+    }
     Induce(sorted_lms);
   }
   return sa;
@@ -183,7 +210,9 @@ std::vector<int> SA_IS(const std::vector<int>& s, int upper) {
 
 std::vector<int> SuffixArray(const std::vector<int>& s, int upper) {
   assert(0 <= upper);
-  for (int d : s) { assert(0 <= d && d <= upper); }
+  for (int d : s) {
+    assert(0 <= d && d <= upper);
+  }
   return internal::SA_IS(s, upper);
 }
 
@@ -196,7 +225,9 @@ std::vector<int> SuffixArray(const std::vector<T>& s) {
   std::vector<int> s2(n);
   int now = 0;
   for (int i = 0; i < n; i++) {
-    if (i > 0 && s[id[i - 1]] != s[id[i]]) { now += 1; }
+    if (i > 0 && s[id[i - 1]] != s[id[i]]) {
+      now += 1;
+    }
     s2[id[i]] = now;
   }
   return internal::SA_IS(s2, now);
@@ -205,7 +236,9 @@ std::vector<int> SuffixArray(const std::vector<T>& s) {
 std::vector<int> SuffixArray(const std::string& s) {
   const int n = static_cast<int>(s.size());
   std::vector<int> s2(n);
-  for (int i = 0; i < n; i++) { s2[i] = s[i]; }
+  for (int i = 0; i < n; i++) {
+    s2[i] = s[i];
+  }
   return internal::SA_IS(s2, 255);
 }
 
@@ -218,13 +251,19 @@ std::vector<int> LCPArray(const std::vector<T>& s, const std::vector<int>& sa) {
   const int n = static_cast<int>(s.size());
   assert(n >= 1);
   std::vector<int> rank(n);
-  for (int i = 0; i < n; i++) { rank[sa[i]] = i; }
+  for (int i = 0; i < n; i++) {
+    rank[sa[i]] = i;
+  }
   std::vector<int> lcp(n - 1);
   for (int i = 0, h = 0; i < n; i++) {
-    if (h > 0) { h -= 1; }
+    if (h > 0) {
+      h -= 1;
+    }
     if (rank[i] == 0) continue;
     int j = sa[rank[i] - 1];
-    while (i + h < n && j + h < n && s[i + h] == s[j + h]) { h += 1; }
+    while (i + h < n && j + h < n && s[i + h] == s[j + h]) {
+      h += 1;
+    }
     lcp[rank[i] - 1] = h;
   }
   return lcp;
@@ -233,7 +272,9 @@ std::vector<int> LCPArray(const std::vector<T>& s, const std::vector<int>& sa) {
 std::vector<int> LCPArray(const std::string& s, const std::vector<int>& sa) {
   const int n = static_cast<int>(s.size());
   std::vector<int> s2(n);
-  for (int i = 0; i < n; i++) { s2[i] = s[i]; }
+  for (int i = 0; i < n; i++) {
+    s2[i] = s[i];
+  }
   return LCPArray(s2, sa);
 }
 
@@ -242,13 +283,17 @@ void RunCase([[maybe_unused]] int testcase) {
   std::cin >> s;
 
   const std::vector<int> sa = SuffixArray(s);
-  for (int id : sa) { std::cout << id << " "; }
+  for (int id : sa) {
+    std::cout << id << " ";
+  }
 }
 
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

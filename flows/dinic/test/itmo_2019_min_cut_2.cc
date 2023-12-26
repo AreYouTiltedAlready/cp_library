@@ -26,7 +26,6 @@ decltype(auto) y_combinator(Fun&& fun) {
   return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
 }
 
-
 template <typename T>
 class simple_queue {
  public:
@@ -54,8 +53,7 @@ class FlowGraph {
  public:
   struct Edge {
     Edge() : from(0), to(0), cap(0), flow(0) {}
-    Edge(int from, int to, T cap)
-        : cap(cap), flow(0), from(from), to(to) {}
+    Edge(int from, int to, T cap) : cap(cap), flow(0), from(from), to(to) {}
 
     T cap;
     T flow;
@@ -80,7 +78,9 @@ class FlowGraph {
   T FindKFlow(T k) {
     T flow = 0;
     while (flow < k && Bfs(1)) {
-      while (flow < k && Dfs(source_, 1, 1) == 1) { flow += 1; }
+      while (flow < k && Dfs(source_, 1, 1) == 1) {
+        flow += 1;
+      }
     }
     return flow;
   }
@@ -104,9 +104,13 @@ class FlowGraph {
       std::fill(visited.begin(), visited.end(), 0);
       int v = source_;
       while (!visited[v]) {
-        if (v == sink_) { break; }
+        if (v == sink_) {
+          break;
+        }
         for (int& i = edge_ptr_[v]; i < static_cast<int>(g_[v].size()); ++i) {
-          if (const Edge& e = edges_[g_[v][i]]; e.flow > 0) { break; }
+          if (const Edge& e = edges_[g_[v][i]]; e.flow > 0) {
+            break;
+          }
         }
         if (edge_ptr_[v] == static_cast<int>(g_[v].size())) {
           return std::nullopt;
@@ -119,7 +123,9 @@ class FlowGraph {
       }
       if (visited[v]) {
         int id = 0;
-        while (edges_[eids[id]].from != v) { id += 1; }
+        while (edges_[eids[id]].from != v) {
+          id += 1;
+        }
         eids.erase(eids.begin(), eids.begin() + id);
       }
       std::vector<int> vertices;
@@ -130,7 +136,9 @@ class FlowGraph {
         vertices.push_back(edges_[id].from);
       }
       vertices.push_back(v);
-      for (int id : eids) { Push(id, -path_min); }
+      for (int id : eids) {
+        Push(id, -path_min);
+      }
       return SimpleDecompositionResult(std::move(vertices), path_min);
     };
 
@@ -149,7 +157,9 @@ class FlowGraph {
     for (const auto& [cap, flow, from, to] : edges_) {
       max_cap = std::max(max_cap, cap);
     }
-    if (max_cap == 0) { return 0; }
+    if (max_cap == 0) {
+      return 0;
+    }
     T max_flow = 0;
     T bound = static_cast<T>(1) << std::__lg(max_cap);
     while (bound > 0) {
@@ -179,8 +189,7 @@ class FlowGraph {
     y_combinator([&](auto&& dfs, int v) -> void {
       reachable[v] = true;
       for (int eid : g_[v]) {
-        if (const Edge& e = edges_[eid];
-            e.cap > e.flow && !reachable[e.to]) {
+        if (const Edge& e = edges_[eid]; e.cap > e.flow && !reachable[e.to]) {
           dfs(e.to);
         }
       }
@@ -219,7 +228,9 @@ class FlowGraph {
   }
 
   T Dfs(int v, T least_residual, T lower_bound) {
-    if (v == sink_) { return least_residual; }
+    if (v == sink_) {
+      return least_residual;
+    }
     T dfs_result = 0;
     for (int& i = edge_ptr_[v]; i < static_cast<int>(g_[v].size()); ++i) {
       int eid = g_[v][i];
@@ -249,21 +260,20 @@ class FlowGraph {
   std::vector<std::vector<int>> g_;
 };
 
-
 // https://codeforces.com/group/QmrArgR1Jp/contest/322857/problem/D
 // https://codeforces.com/group/QmrArgR1Jp/contest/322857/submission/238806940
 void RunCase([[maybe_unused]] int testcase) {
   int n;
   int m;
   std::cin >> n >> m;
- 
+
   std::vector mat(n, std::vector<char>(m));
   for (std::vector<char>& row : mat) {
     for (char& c : row) {
       std::cin >> c;
     }
   }
- 
+
   const auto [source, sink] = [&]() -> std::array<int, 2> {
     int s = -1;
     int t = -1;
@@ -281,24 +291,26 @@ void RunCase([[maybe_unused]] int testcase) {
     }
     return {{s, t}};
   }();
- 
+
   constexpr int kBigCapacity = std::numeric_limits<int>::max() / 10;
   FlowGraph<int64_t> FlowGraph(n * m * 2, n * m * 5, source * 2, sink * 2 + 1);
   for (int i = 0; i < n - 1; ++i) {
     for (int j = 0; j < m; ++j) {
       if (mat[i][j] != '#' && mat[i + 1][j] != '#') {
         FlowGraph.AddEdge((i * m + j) * 2 + 1, ((i + 1) * m + j) * 2,
-                        kBigCapacity);
+                          kBigCapacity);
         FlowGraph.AddEdge(((i + 1) * m + j) * 2 + 1, (i * m + j) * 2,
-                        kBigCapacity);
+                          kBigCapacity);
       }
     }
   }
   for (int i = 0; i < n; ++i) {
     for (int j = 0; j < m - 1; ++j) {
       if (mat[i][j] != '#' && mat[i][j + 1] != '#') {
-        FlowGraph.AddEdge((i * m + j) * 2 + 1, (i * m + j + 1) * 2, kBigCapacity);
-        FlowGraph.AddEdge((i * m + j + 1) * 2 + 1, (i * m + j) * 2, kBigCapacity);
+        FlowGraph.AddEdge((i * m + j) * 2 + 1, (i * m + j + 1) * 2,
+                          kBigCapacity);
+        FlowGraph.AddEdge((i * m + j + 1) * 2 + 1, (i * m + j) * 2,
+                          kBigCapacity);
       }
     }
   }
@@ -308,13 +320,13 @@ void RunCase([[maybe_unused]] int testcase) {
       FlowGraph.AddEdge((i * m + j) * 2, (i * m + j) * 2 + 1, cap);
     }
   }
- 
+
   int64_t max_flow = FlowGraph.Dinic();
   if (max_flow >= kBigCapacity) {
     std::cout << "-1\n";
     return;
   }
- 
+
   int ans = 0;
   auto min_cut = FlowGraph.MinCut();
   for (int eid : min_cut) {
@@ -328,7 +340,7 @@ void RunCase([[maybe_unused]] int testcase) {
     assert(u == v);
     mat[u / m][u % m] = '+';
   }
- 
+
   std::cout << ans << "\n";
   for (const std::vector<char>& row : mat) {
     for (char c : row) {
@@ -341,7 +353,9 @@ void RunCase([[maybe_unused]] int testcase) {
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

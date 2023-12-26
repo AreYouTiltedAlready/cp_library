@@ -1,6 +1,5 @@
 #include <cstdint>
 #include <iostream>
-#include <type_traits>
 
 class Barrett {
  public:
@@ -43,14 +42,16 @@ class DynamicModint {
 
   template <typename T,
             typename std::enable_if_t<
-                std::is_integral_v<T> && std::is_signed_v<T>, void>* = nullptr>
+                std::is_integral_v<T> && std::is_signed_v<T>, void> * = nullptr>
   DynamicModint(T value) : value_(value % kMod) {
-    if (value < 0) { value += kMod; }
+    if (value < 0) {
+      value += kMod;
+    }
   }
 
   template <typename T, typename std::enable_if_t<std::is_integral_v<T> &&
                                                       std::is_unsigned_v<T>,
-                                                  void>* = nullptr>
+                                                  void> * = nullptr>
   DynamicModint(T value) : value_(value % kMod) {}
 
   using Mint = DynamicModint<M>;
@@ -74,70 +75,78 @@ class DynamicModint {
     Mint result = Raw(1U);
 #pragma GCC unroll(30)
     for (unsigned i = 0; i < 30; ++i) {
-      if (((kMod - 2) >> i) % 2 == 1) { result *= m; }
+      if (((kMod - 2) >> i) % 2 == 1) {
+        result *= m;
+      }
       m *= m;
     }
     return result;
   }
 
-  Mint& operator+=(const Mint& other) {
-    if (value_ += other.value_; value_ >= kMod) { value_ -= kMod; }
+  Mint &operator+=(const Mint &other) {
+    if (value_ += other.value_; value_ >= kMod) {
+      value_ -= kMod;
+    }
     return *this;
   }
 
-  Mint& operator-=(const Mint& other) {
-    if (value_ += kMod - other.value_; value_ >= kMod) { value_ -= kMod; }
+  Mint &operator-=(const Mint &other) {
+    if (value_ += kMod - other.value_; value_ >= kMod) {
+      value_ -= kMod;
+    }
     return *this;
   }
 
-  Mint& operator*=(const Mint& other) {
+  Mint &operator*=(const Mint &other) {
     value_ = barrett.Product(value_, other.value_);
     return *this;
   }
 
-  Mint& operator/=(const Mint& other) {
+  Mint &operator/=(const Mint &other) {
     value_ = barrett.Product(value_, other.Inverse().value_);
     return *this;
   }
 
-  friend Mint operator+(const Mint& lhs, const Mint& rhs) {
+  friend Mint operator+(const Mint &lhs, const Mint &rhs) {
     return Mint(lhs) += rhs;
   }
 
-  friend Mint operator-(const Mint& lhs, const Mint& rhs) {
+  friend Mint operator-(const Mint &lhs, const Mint &rhs) {
     return Mint(lhs) -= rhs;
   }
 
-  friend Mint operator*(const Mint& lhs, const Mint& rhs) {
+  friend Mint operator*(const Mint &lhs, const Mint &rhs) {
     return Mint(lhs) *= rhs;
   }
 
-  friend Mint operator/(const Mint& lhs, const Mint& rhs) {
+  friend Mint operator/(const Mint &lhs, const Mint &rhs) {
     return Mint(lhs) /= rhs;
   }
 
   friend Mint Power(Mint m, uint64_t n) {
     Mint result = Raw(1U);
     while (n > 0) {
-      if (n % 2 == 1) { result *= m; }
+      if (n % 2 == 1) {
+        result *= m;
+      }
       m *= m;
       n /= 2;
     }
     return result;
   }
 
-  friend bool operator==(const Mint& lhs, const Mint& rhs) {
+  friend bool operator==(const Mint &lhs, const Mint &rhs) {
     return lhs.value_ == rhs.value_;
   }
 
-  friend std::istream& operator>>(std::istream& is, Mint& mint) {
+  friend std::istream &operator>>(std::istream &is, Mint &mint) {
     uint32_t value;
     is >> value;
     mint = Mint(value);
     return is;
   }
 
-  friend std::ostream& operator<<(std::ostream& os, const Mint& mint) {
+  friend std::ostream &operator<<(std::ostream &os, const Mint &mint) {
     return os << mint.value_;
   }
 

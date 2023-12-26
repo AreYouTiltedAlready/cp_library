@@ -1,6 +1,5 @@
 #include <limits>
 #include <optional>
-#include <type_traits>
 #include <vector>
 
 template <typename T>
@@ -63,7 +62,9 @@ class FlowGraph {
   T FindKFlow(T k) {
     T flow = 0;
     while (flow < k && Bfs(1)) {
-      while (flow < k && Dfs(source_, 1, 1) == 1) { flow += 1; }
+      while (flow < k && Dfs(source_, 1, 1) == 1) {
+        flow += 1;
+      }
     }
     return flow;
   }
@@ -87,9 +88,13 @@ class FlowGraph {
       std::fill(visited.begin(), visited.end(), 0);
       int v = source_;
       while (!visited[v]) {
-        if (v == sink_) { break; }
+        if (v == sink_) {
+          break;
+        }
         for (int& i = edge_ptr_[v]; i < static_cast<int>(g_[v].size()); ++i) {
-          if (const Edge& e = edges_[g_[v][i]]; e.flow > 0) { break; }
+          if (const Edge& e = edges_[g_[v][i]]; e.flow > 0) {
+            break;
+          }
         }
         if (edge_ptr_[v] == static_cast<int>(g_[v].size())) {
           return std::nullopt;
@@ -102,7 +107,9 @@ class FlowGraph {
       }
       if (visited[v]) {
         int id = 0;
-        while (edges_[eids[id]].from != v) { id += 1; }
+        while (edges_[eids[id]].from != v) {
+          id += 1;
+        }
         eids.erase(eids.begin(), eids.begin() + id);
       }
       std::vector<int> vertices;
@@ -113,7 +120,9 @@ class FlowGraph {
         vertices.push_back(edges_[id].from);
       }
       vertices.push_back(v);
-      for (int id : eids) { Push(id, -path_min); }
+      for (int id : eids) {
+        Push(id, -path_min);
+      }
       return SimpleDecompositionResult(std::move(vertices), path_min);
     };
 
@@ -132,7 +141,9 @@ class FlowGraph {
     for (const auto& [cap, flow, from, to] : edges_) {
       max_cap = std::max(max_cap, cap);
     }
-    if (max_cap == 0) { return 0; }
+    if (max_cap == 0) {
+      return 0;
+    }
     T max_flow = 0;
     T bound = static_cast<T>(1) << std::__lg(max_cap);
     while (bound > 0) {
@@ -201,7 +212,9 @@ class FlowGraph {
   }
 
   T Dfs(int v, T least_residual, T lower_bound) {
-    if (v == sink_) { return least_residual; }
+    if (v == sink_) {
+      return least_residual;
+    }
     T dfs_result = 0;
     for (int& i = edge_ptr_[v]; i < static_cast<int>(g_[v].size()); ++i) {
       int eid = g_[v][i];

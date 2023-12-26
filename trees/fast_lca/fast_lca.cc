@@ -19,7 +19,9 @@ class RmqSolver {
     const int n = static_cast<int>(values.size());  // n = 0 is not allowed
     const int log = std::__lg(n * 2);
     matrix_.resize(log);
-    for (int i = 0; i < log; ++i) { matrix_[i].resize(n - (1 << i) + 1); }
+    for (int i = 0; i < log; ++i) {
+      matrix_[i].resize(n - (1 << i) + 1);
+    }
     std::iota(matrix_.front().begin(), matrix_.front().end(), 0);
     for (int i = 1; i < log; ++i) {
       for (int j = 0; j < n - (1 << i) + 1; ++j) {
@@ -60,8 +62,8 @@ using RmqSolverMin = RmqSolver<T, RmqMode::kMin>;
 // Okay, this is just a generalization of basic hld (on top of hld, we maintain
 // euler tour for lca in $O(1))
 // Note: similar to hld, one must call Build() before queries
-// In case of construction from adjacency list, the Build() is called immediately
-// All queries except of LA are O(1) now
+// In case of construction from adjacency list, the Build() is called
+// immediately All queries except of LA are O(1) now
 class LcaForest {
  public:
   explicit LcaForest(int n)
@@ -106,7 +108,9 @@ class LcaForest {
     for (int i = 0; i < n_; ++i) {
       g_[i].erase(std::remove(g_[i].begin(), g_[i].end(), parent_[i]),
                   g_[i].end());
-      if (g_[i].empty()) { continue; }
+      if (g_[i].empty()) {
+        continue;
+      }
       std::swap(
           *(g_[i].begin()),
           *std::max_element(g_[i].begin(), g_[i].end(),
@@ -148,14 +152,20 @@ class LcaForest {
 
   int Lca(int u, int v) const {
     assert(rmq_ptr_ != nullptr);
-    if (entry_[u] > entry_[v]) { std::swap(u, v); }
+    if (entry_[u] > entry_[v]) {
+      std::swap(u, v);
+    }
     return euler_[rmq_ptr_->GetIndex(entry_[u], entry_[v] + 1)];
   }
 
   // obviously, 0-indexed
   int LevelAncestor(int v, int h) const {
-    if (!(0 <= h && h <= depth_[v])) { return -1; }
-    while (depth_[head_[v]] > h) { v = parent_[head_[v]]; }
+    if (!(0 <= h && h <= depth_[v])) {
+      return -1;
+    }
+    while (depth_[head_[v]] > h) {
+      v = parent_[head_[v]];
+    }
     return tour_[in_[head_[v]] + h - depth_[head_[v]]];
   }
 
@@ -169,8 +179,12 @@ class LcaForest {
     int z = Lca(u, v);
     int du = depth_[u] - depth_[z];
     int dv = depth_[v] - depth_[z];
-    if (!(0 <= k && k <= du + dv)) { return -1; }
-    if (k <= du) { return KthAncestor(u, k); }
+    if (!(0 <= k && k <= du + dv)) {
+      return -1;
+    }
+    if (k <= du) {
+      return KthAncestor(u, k);
+    }
     return KthAncestor(v, du + dv - k);
   }
 
@@ -178,7 +192,9 @@ class LcaForest {
   void SizeDfs(int v) {
     size_[v] = 1;
     for (int to : g_[v]) {
-      if (to == parent_[v]) { continue; }
+      if (to == parent_[v]) {
+        continue;
+      }
       parent_[to] = v;
       depth_[to] = depth_[v] + 1;
       SizeDfs(to);

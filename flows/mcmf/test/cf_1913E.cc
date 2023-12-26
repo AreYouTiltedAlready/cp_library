@@ -1,9 +1,6 @@
-#include <bits/extc++.h>
 #include <bits/stdc++.h>
 
 #include <ext/pb_ds/priority_queue.hpp>
-#include <functional>
-#include <utility>
 
 namespace {
 
@@ -77,7 +74,9 @@ class MinCostFlowGraph {
       heap_.pop();
       for (int eid : g_[v]) {
         const Edge& e = edges_[eid];
-        if (e.cap == e.flow) { continue; }
+        if (e.cap == e.flow) {
+          continue;
+        }
         if (C new_cost = d + e.cost - pot_[e.to]; new_cost < distance_[e.to]) {
           sp_edge_[e.to] = eid;
           distance_[e.to] = new_cost;
@@ -103,7 +102,9 @@ class MinCostFlowGraph {
 
     const bool negative_edges = [&]() -> bool {
       for (int i = 0; i < edges_.size() / 2; ++i) {
-        if (edges_[i * 2].cost < 0) { return true; }
+        if (edges_[i * 2].cost < 0) {
+          return true;
+        }
       }
       return false;
     }();
@@ -116,7 +117,9 @@ class MinCostFlowGraph {
         any = false;
         for (int i = 0; i < static_cast<int>(edges_.size()); i += 2) {
           const Edge& e = edges_[i];
-          if (pot_[e.from] == kUnreachable) { continue; }
+          if (pot_[e.from] == kUnreachable) {
+            continue;
+          }
           if (C new_cost = pot_[e.from] + e.cost; new_cost < pot_[e.to]) {
             any = true;
             pot_[e.to] = new_cost;
@@ -182,14 +185,20 @@ void RunCase([[maybe_unused]] int testcase) {
 
   std::vector mat(n, std::vector<int>(m));
   for (std::vector<int>& row : mat) {
-    for (int& c : row) { std::cin >> c; }
+    for (int& c : row) {
+      std::cin >> c;
+    }
   }
 
   std::vector<int> row_sum(n);
-  for (int& r : row_sum) { std::cin >> r; }
+  for (int& r : row_sum) {
+    std::cin >> r;
+  }
 
   std::vector<int> column_sum(m);
-  for (int& c : column_sum) { std::cin >> c; }
+  for (int& c : column_sum) {
+    std::cin >> c;
+  }
 
   const int total = std::accumulate(row_sum.cbegin(), row_sum.cend(), 0);
   if (total != std::accumulate(column_sum.cbegin(), column_sum.cend(), 0)) {
@@ -198,7 +207,9 @@ void RunCase([[maybe_unused]] int testcase) {
   }
 
   MinCostFlowGraph<int, int> Graph(n + m + 2, n * m + n + m);
-  for (int i = 0; i < n; ++i) { Graph.AddEdge(n + m, i, row_sum[i], 0); }
+  for (int i = 0; i < n; ++i) {
+    Graph.AddEdge(n + m, i, row_sum[i], 0);
+  }
   for (int i = 0; i < m; ++i) {
     Graph.AddEdge(i + n, n + m + 1, column_sum[i], 0);
   }
@@ -229,7 +240,9 @@ void RunCase([[maybe_unused]] int testcase) {
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

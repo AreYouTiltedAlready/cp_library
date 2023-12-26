@@ -78,7 +78,9 @@ class MinCostFlowGraph {
       heap_.pop();
       for (int eid : g_[v]) {
         const Edge& e = edges_[eid];
-        if (e.cap == e.flow) { continue; }
+        if (e.cap == e.flow) {
+          continue;
+        }
         if (C new_cost = d + e.cost - pot_[e.to]; new_cost < distance_[e.to]) {
           sp_edge_[e.to] = eid;
           distance_[e.to] = new_cost;
@@ -104,7 +106,9 @@ class MinCostFlowGraph {
 
     const bool negative_edges = [&]() -> bool {
       for (int i = 0; i < edges_.size() / 2; ++i) {
-        if (edges_[i * 2].cost < 0) { return true; }
+        if (edges_[i * 2].cost < 0) {
+          return true;
+        }
       }
       return false;
     }();
@@ -117,7 +121,9 @@ class MinCostFlowGraph {
         any = false;
         for (int i = 0; i < static_cast<int>(edges_.size()); i += 2) {
           const Edge& e = edges_[i];
-          if (pot_[e.from] == kUnreachable) { continue; }
+          if (pot_[e.from] == kUnreachable) {
+            continue;
+          }
           if (C new_cost = pot_[e.from] + e.cost; new_cost < pot_[e.to]) {
             any = true;
             pot_[e.to] = new_cost;
@@ -181,13 +187,17 @@ void RunCase([[maybe_unused]] int testcase) {
   std::cin >> n;
   std::vector cost(n, std::vector<int>(n));
   for (int i = 0; i < n; ++i) {
-    for (int j = 0; j < n; ++j) { std::cin >> cost[i][j]; }
+    for (int j = 0; j < n; ++j) {
+      std::cin >> cost[i][j];
+    }
   }
   MinCostFlowGraph<int, int64_t> mf_graph(2 * (n + 1), n * (n + 2));
   for (int i = 0; i < n; ++i) {
     mf_graph.AddEdge(n * 2, i, 1, 0);
     mf_graph.AddEdge(i + n, n * 2 + 1, 1, 0);
-    for (int j = 0; j < n; ++j) { mf_graph.AddEdge(i, j + n, 1, cost[i][j]); }
+    for (int j = 0; j < n; ++j) {
+      mf_graph.AddEdge(i, j + n, 1, cost[i][j]);
+    }
   }
   auto [F, C] = mf_graph.MinCostFlow(n * 2, n * 2 + 1);
   assert(F == n);
@@ -199,13 +209,17 @@ void RunCase([[maybe_unused]] int testcase) {
     }
   }
   std::cout << C << "\n";
-  for (int i = 0; i < n; ++i) { std::cout << ans[i] << " \n"[i == n - 1]; }
+  for (int i = 0; i < n; ++i) {
+    std::cout << ans[i] << " \n"[i == n - 1];
+  }
 }
 
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

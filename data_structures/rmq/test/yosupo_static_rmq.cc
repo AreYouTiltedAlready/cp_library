@@ -41,7 +41,9 @@ class RmqSolver {
     const int n = static_cast<int>(values.size());  // n = 0 is not allowed
     const int log = std::__lg(n * 2);
     matrix_.resize(log);
-    for (int i = 0; i < log; ++i) { matrix_[i].resize(n - (1 << i) + 1); }
+    for (int i = 0; i < log; ++i) {
+      matrix_[i].resize(n - (1 << i) + 1);
+    }
     std::iota(matrix_.front().begin(), matrix_.front().end(), 0);
     for (int i = 1; i < log; ++i) {
       for (int j = 0; j < n - (1 << i) + 1; ++j) {
@@ -87,7 +89,9 @@ void RunCase([[maybe_unused]] int testcase) {
   std::cin >> n >> q;
 
   std::vector<int> v(n);
-  for (int& i : v) { std::cin >> i; }
+  for (int& i : v) {
+    std::cin >> i;
+  }
   RmqSolverMin<int> sparse_table(v);
 
   for (int i = 0; i < q; ++i) {
@@ -101,7 +105,9 @@ void RunCase([[maybe_unused]] int testcase) {
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

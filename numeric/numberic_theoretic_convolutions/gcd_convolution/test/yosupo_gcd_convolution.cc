@@ -29,9 +29,13 @@ std::vector<int> PrimeEnumerate(int n) {
   primes.reserve(1.1 * n / std::__lg(n * 2));
   std::vector<bool> is_prime(n + 1, true);
   for (int i = 2; i <= n; ++i) {
-    if (!is_prime[i]) { continue; }
+    if (!is_prime[i]) {
+      continue;
+    }
     primes.push_back(i);
-    for (int j = i * 2; j <= n; j += i) { is_prime[j] = false; }
+    for (int j = i * 2; j <= n; j += i) {
+      is_prime[j] = false;
+    }
   }
   return primes;
 }
@@ -40,7 +44,9 @@ template <typename T>
 void ZetaTransform(std::vector<T>& v, const std::vector<int>& primes) {
   const int n = static_cast<int>(v.size()) - 1;
   for (int p : primes) {
-    for (int i = n / p; i > 0; --i) { v[i] += v[i * p]; }
+    for (int i = n / p; i > 0; --i) {
+      v[i] += v[i * p];
+    }
   }
 }
 
@@ -48,7 +54,9 @@ template <typename T>
 void MobiusTransform(std::vector<T>& v, const std::vector<int>& primes) {
   const int n = static_cast<int>(v.size()) - 1;
   for (int p : primes) {
-    for (int i = 1; i <= n / p; ++i) { v[i] -= v[i * p]; }
+    for (int i = 1; i <= n / p; ++i) {
+      v[i] -= v[i * p];
+    }
   }
 }
 
@@ -62,7 +70,9 @@ std::vector<std::common_type_t<T, U>> GcdConvolution(std::vector<T> lhs,
   ZetaTransform(rhs, primes);
   using V = std::common_type_t<T, U>;
   std::vector<V> result(n + 1);
-  for (int i = 0; i <= n; ++i) { result[i] = static_cast<V>(lhs[i]) * rhs[i]; }
+  for (int i = 0; i <= n; ++i) {
+    result[i] = static_cast<V>(lhs[i]) * rhs[i];
+  }
   MobiusTransform(result, primes);
   return result;
 }
@@ -105,7 +115,9 @@ class StaticModint {
   StaticModint(T value)
       : value_(  // NOLINT(*-explicit-constructor)
             value % kMod) {
-    if (value < 0) { value += kMod; }
+    if (value < 0) {
+      value += kMod;
+    }
   }
 
   template <typename T, typename std::enable_if_t<std::is_integral_v<T> &&
@@ -136,19 +148,25 @@ class StaticModint {
     Mint result = Raw(1U);
 #pragma GCC unroll(30)
     for (unsigned i = 0; i < 30; ++i) {
-      if (((kMod - 2) >> i) % 2 == 1) { result *= m; }
+      if (((kMod - 2) >> i) % 2 == 1) {
+        result *= m;
+      }
       m *= m;
     }
     return result;
   }
 
   Mint& operator+=(const Mint& other) {
-    if (value_ += other.value_; value_ >= kMod) { value_ -= kMod; }
+    if (value_ += other.value_; value_ >= kMod) {
+      value_ -= kMod;
+    }
     return *this;
   }
 
   Mint& operator-=(const Mint& other) {
-    if (value_ += kMod - other.value_; value_ >= kMod) { value_ -= kMod; }
+    if (value_ += kMod - other.value_; value_ >= kMod) {
+      value_ -= kMod;
+    }
     return *this;
   }
 
@@ -181,7 +199,9 @@ class StaticModint {
   friend Mint Power(Mint m, uint64_t n) {
     Mint result = Raw(1U);
     while (n > 0) {
-      if (n % 2 == 1) { result *= m; }
+      if (n % 2 == 1) {
+        result *= m;
+      }
       m *= m;
       n /= 2;
     }
@@ -216,19 +236,27 @@ void RunCase([[maybe_unused]] int testcase) {
 
   using Mint = StaticModint<998244353>;
   std::vector<Mint> p(n + 1);
-  for (int i = 1; i <= n; ++i) { std::cin >> p[i]; }
+  for (int i = 1; i <= n; ++i) {
+    std::cin >> p[i];
+  }
 
   std::vector<Mint> q(n + 1);
-  for (int i = 1; i <= n; ++i) { std::cin >> q[i]; }
+  for (int i = 1; i <= n; ++i) {
+    std::cin >> q[i];
+  }
 
   std::vector<Mint> r = GcdConvolution(p, q);
-  for (int i = 1; i <= n; ++i) { std::cout << r[i] << " \n"[i == n]; }
+  for (int i = 1; i <= n; ++i) {
+    std::cout << r[i] << " \n"[i == n];
+  }
 }
 
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

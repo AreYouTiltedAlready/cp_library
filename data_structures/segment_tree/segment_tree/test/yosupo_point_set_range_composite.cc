@@ -110,23 +110,33 @@ class SegmentTree {
   }
 
   [[nodiscard]] T Get(int x, int l, int r, int ql, int qr) const {
-    if (ql <= l && r <= qr) { return tree_[x]; }
+    if (ql <= l && r <= qr) {
+      return tree_[x];
+    }
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
-    if (qr <= mid) { return Get(x + 1, l, mid, ql, qr); }
-    if (ql >= mid) { return Get(z, mid, r, ql, qr); }
+    if (qr <= mid) {
+      return Get(x + 1, l, mid, ql, qr);
+    }
+    if (ql >= mid) {
+      return Get(z, mid, r, ql, qr);
+    }
     return Op(Get(x + 1, l, mid, ql, qr), Get(z, mid, r, ql, qr));
   }
 
   int FindFirst(int x, int l, int r, int ql, int qr, const Predicate& pred) {
     if (ql <= l && r <= qr) {
-      if (!pred(tree_[x])) { return -1; }
+      if (!pred(tree_[x])) {
+        return -1;
+      }
       return FindFirstKnowingly(x, l, r, pred);
     }
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
     int result = -1;
-    if (ql < mid) { result = FindFirst(x + 1, l, mid, ql, qr, pred); }
+    if (ql < mid) {
+      result = FindFirst(x + 1, l, mid, ql, qr, pred);
+    }
     if (result == -1 && qr > mid) {
       result = FindFirst(z, mid, r, ql, qr, pred);
     }
@@ -135,13 +145,17 @@ class SegmentTree {
 
   int FindLast(int x, int l, int r, int ql, int qr, const Predicate& pred) {
     if (ql <= l && r <= qr) {
-      if (!pred(tree_[x])) { return -1; }
+      if (!pred(tree_[x])) {
+        return -1;
+      }
       return FindLastKnowingly(x, l, r, pred);
     }
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
     int result = -1;
-    if (qr > mid) { result = FindLast(z, mid, r, ql, qr, pred); }
+    if (qr > mid) {
+      result = FindLast(z, mid, r, ql, qr, pred);
+    }
     if (result == -1 && ql < mid) {
       result = FindLast(x + 1, l, mid, ql, qr, pred);
     }
@@ -218,7 +232,9 @@ class StaticModint {
   StaticModint(T value)
       : value_(  // NOLINT(*-explicit-constructor)
             value % kMod) {
-    if (value < 0) { value += kMod; }
+    if (value < 0) {
+      value += kMod;
+    }
   }
 
   template <typename T, typename std::enable_if_t<std::is_integral_v<T> &&
@@ -249,19 +265,25 @@ class StaticModint {
     Mint result = Raw(1U);
 #pragma GCC unroll(30)
     for (unsigned i = 0; i < 30; ++i) {
-      if (((kMod - 2) >> i) % 2 == 1) { result *= m; }
+      if (((kMod - 2) >> i) % 2 == 1) {
+        result *= m;
+      }
       m *= m;
     }
     return result;
   }
 
   Mint& operator+=(const Mint& other) {
-    if (value_ += other.value_; value_ >= kMod) { value_ -= kMod; }
+    if (value_ += other.value_; value_ >= kMod) {
+      value_ -= kMod;
+    }
     return *this;
   }
 
   Mint& operator-=(const Mint& other) {
-    if (value_ += kMod - other.value_; value_ >= kMod) { value_ -= kMod; }
+    if (value_ += kMod - other.value_; value_ >= kMod) {
+      value_ -= kMod;
+    }
     return *this;
   }
 
@@ -294,7 +316,9 @@ class StaticModint {
   friend Mint Power(Mint m, uint64_t n) {
     Mint result = Raw(1U);
     while (n > 0) {
-      if (n % 2 == 1) { result *= m; }
+      if (n % 2 == 1) {
+        result *= m;
+      }
       m *= m;
       n /= 2;
     }
@@ -349,7 +373,9 @@ void RunCase([[maybe_unused]] int testcase) {
   std::cin >> n >> q;
 
   std::vector<S> data(n);
-  for (S& s : data) { std::cin >> s; }
+  for (S& s : data) {
+    std::cin >> s;
+  }
 
   SegmentTree<S, Op> segment_tree(data);
   while (q--) {
@@ -374,7 +400,9 @@ void RunCase([[maybe_unused]] int testcase) {
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

@@ -24,8 +24,12 @@ std::vector<std::common_type_t<T, U>> XorConvolution(std::vector<T> lhs,
   FWHT(rhs);
   using V = std::common_type_t<T, U>;
   std::vector<V> result(n);
-  for (int i = 0; i < n; ++i) { result[i] = static_cast<V>(lhs[i]) * rhs[i]; }
+  for (int i = 0; i < n; ++i) {
+    result[i] = static_cast<V>(lhs[i]) * rhs[i];
+  }
   FWHT(result);
-  for (V& c : result) { c /= n; }
+  for (V& c : result) {
+    c /= n;
+  }
   return result;
 }

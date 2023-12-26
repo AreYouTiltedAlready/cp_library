@@ -24,7 +24,9 @@ class RmqSolver {
     const int n = static_cast<int>(values.size());  // n = 0 is not allowed
     const int log = std::__lg(n * 2);
     matrix_.resize(log);
-    for (int i = 0; i < log; ++i) { matrix_[i].resize(n - (1 << i) + 1); }
+    for (int i = 0; i < log; ++i) {
+      matrix_[i].resize(n - (1 << i) + 1);
+    }
     std::iota(matrix_.front().begin(), matrix_.front().end(), 0);
     for (int i = 1; i < log; ++i) {
       for (int j = 0; j < n - (1 << i) + 1; ++j) {

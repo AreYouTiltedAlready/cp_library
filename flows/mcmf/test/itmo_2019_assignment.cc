@@ -77,7 +77,9 @@ class MinCostFlowGraph {
       heap_.pop();
       for (int eid : g_[v]) {
         const Edge& e = edges_[eid];
-        if (e.cap == e.flow) { continue; }
+        if (e.cap == e.flow) {
+          continue;
+        }
         if (C new_cost = d + e.cost - pot_[e.to]; new_cost < distance_[e.to]) {
           sp_edge_[e.to] = eid;
           distance_[e.to] = new_cost;
@@ -103,7 +105,9 @@ class MinCostFlowGraph {
 
     const bool negative_edges = [&]() -> bool {
       for (int i = 0; i < edges_.size() / 2; ++i) {
-        if (edges_[i * 2].cost < 0) { return true; }
+        if (edges_[i * 2].cost < 0) {
+          return true;
+        }
       }
       return false;
     }();
@@ -116,7 +120,9 @@ class MinCostFlowGraph {
         any = false;
         for (int i = 0; i < static_cast<int>(edges_.size()); i += 2) {
           const Edge& e = edges_[i];
-          if (pot_[e.from] == kUnreachable) { continue; }
+          if (pot_[e.from] == kUnreachable) {
+            continue;
+          }
           if (C new_cost = pot_[e.from] + e.cost; new_cost < pot_[e.to]) {
             any = true;
             pot_[e.to] = new_cost;
@@ -181,7 +187,9 @@ void RunCase([[maybe_unused]] int testcase) {
 
   std::vector c(n, std::vector<int>(n));
   for (std::vector<int>& row : c) {
-    for (int& i : row) { std::cin >> i; }
+    for (int& i : row) {
+      std::cin >> i;
+    }
   }
 
   MinCostFlowGraph<int, int> Graph(2 * n + 2, n * n + 2 * n);
@@ -213,7 +221,9 @@ void RunCase([[maybe_unused]] int testcase) {
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

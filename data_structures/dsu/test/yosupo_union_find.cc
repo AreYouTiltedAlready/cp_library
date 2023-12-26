@@ -14,8 +14,12 @@ class Dsu {
 
   int Find(int v) const {
     int u = v;
-    while (v != parent_[v]) { v = parent_[v]; }
-    while (u != v) { u = std::exchange(parent_[u], v); }
+    while (v != parent_[v]) {
+      v = parent_[v];
+    }
+    while (u != v) {
+      u = std::exchange(parent_[u], v);
+    }
     return v;
   }
 
@@ -26,9 +30,13 @@ class Dsu {
   void Join(int u, int v) {
     u = Find(u);
     v = Find(v);
-    if (u == v) { return; }
+    if (u == v) {
+      return;
+    }
 
-    if (weight_[u] > weight_[v]) { std::swap(u, v); }
+    if (weight_[u] > weight_[v]) {
+      std::swap(u, v);
+    }
     parent_[u] = v;
     weight_[v] += weight_[u];
   }

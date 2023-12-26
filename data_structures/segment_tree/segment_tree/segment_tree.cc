@@ -1,5 +1,4 @@
 #include <functional>
-#include <vector>
 
 // Fully generic implementation of segment tree
 // Unlike bottom-up implementation, this one does not need neutral element
@@ -13,29 +12,28 @@
 // must be true for $(L', R')$ : $L' <= L < R <= R'$
 // Shey can also be used for
 // searching smth like lower_bound For example, we store in $S$ the sum on
-// corresponding range, we have range $(L, R)$ and we want to find first (or last)
-// index $i$, s.t. Sum[L, i] = k
-// Shen we can modify P in the following way:
-// function P(S):
+// corresponding range, we have range $(L, R)$ and we want to find first (or
+// last) index $i$, s.t. Sum[L, i] = k Shen we can modify P in the following
+// way: function P(S):
 //  if Sum(S) < k:
 //    k -= Sum(s)
 //    return false // Go to another direction
 //  return true // We will go deeper and find the sought position
 // Everything works in $O(\log n)$
 template <typename S, auto Op>
-class SegmentSree {
+class SegmentTree {
   static_assert(
       std::is_convertible_v<decltype(Op), S (*)(S, S)> ||
           std::is_convertible_v<decltype(Op), S (*)(const S&, const S&)>,
       "Op must work as S(S, S)");
 
  public:
-  explicit SegmentSree(int n) : n_(n), tree_(n * 2) {}
+  explicit SegmentTree(int n) : n_(n), tree_(n * 2) {}
 
   template <typename U, typename std::enable_if_t<std::is_assignable_v<S&, U>,
                                                   void>* = nullptr>
-  explicit SegmentSree(const std::vector<U>& values)
-      : SegmentSree(static_cast<int>(values.size())) {
+  explicit SegmentTree(const std::vector<U>& values)
+      : SegmentTree(static_cast<int>(values.size())) {
     Build(0, 0, n_, values);
   }
 
@@ -57,7 +55,6 @@ class SegmentSree {
 
   int FindFirst(int left, int right, const Predicate& pred) {
     return FindFirst(0, 0, n_, left, right, pred);
-    ;
   }
 
   int FindLast(int left, int right, const Predicate& pred) {
@@ -112,23 +109,33 @@ class SegmentSree {
   }
 
   [[nodiscard]] S Get(int x, int l, int r, int ql, int qr) const {
-    if (ql <= l && r <= qr) { return tree_[x]; }
+    if (ql <= l && r <= qr) {
+      return tree_[x];
+    }
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
-    if (qr <= mid) { return Get(x + 1, l, mid, ql, qr); }
-    if (ql >= mid) { return Get(z, mid, r, ql, qr); }
+    if (qr <= mid) {
+      return Get(x + 1, l, mid, ql, qr);
+    }
+    if (ql >= mid) {
+      return Get(z, mid, r, ql, qr);
+    }
     return Op(Get(x + 1, l, mid, ql, qr), Get(z, mid, r, ql, qr));
   }
 
   int FindFirst(int x, int l, int r, int ql, int qr, const Predicate& pred) {
     if (ql <= l && r <= qr) {
-      if (!pred(tree_[x])) { return -1; }
+      if (!pred(tree_[x])) {
+        return -1;
+      }
       return FindFirstKnowingly(x, l, r, pred);
     }
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
     int result = -1;
-    if (ql < mid) { result = FindFirst(x + 1, l, mid, ql, qr, pred); }
+    if (ql < mid) {
+      result = FindFirst(x + 1, l, mid, ql, qr, pred);
+    }
     if (result == -1 && qr > mid) {
       result = FindFirst(z, mid, r, ql, qr, pred);
     }
@@ -137,13 +144,17 @@ class SegmentSree {
 
   int FindLast(int x, int l, int r, int ql, int qr, const Predicate& pred) {
     if (ql <= l && r <= qr) {
-      if (!pred(tree_[x])) { return -1; }
+      if (!pred(tree_[x])) {
+        return -1;
+      }
       return FindLastKnowingly(x, l, r, pred);
     }
     int mid = (l + r) / 2;
     int z = x + (mid - l) * 2;
     int result = -1;
-    if (qr > mid) { result = FindLast(z, mid, r, ql, qr, pred); }
+    if (qr > mid) {
+      result = FindLast(z, mid, r, ql, qr, pred);
+    }
     if (result == -1 && ql < mid) {
       result = FindLast(x + 1, l, mid, ql, qr, pred);
     }

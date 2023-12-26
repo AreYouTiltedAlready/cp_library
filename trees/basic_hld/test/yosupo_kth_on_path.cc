@@ -55,7 +55,9 @@ class BasicHLD {
     y_combinator([&](auto&& dfs, int v) -> void {
       size_[v] = 1;
       for (int to : g_[v]) {
-        if (to == parent_[v]) { continue; }
+        if (to == parent_[v]) {
+          continue;
+        }
         parent_[to] = v;
         depth_[to] = depth_[v] + 1;
         dfs(to);
@@ -65,7 +67,9 @@ class BasicHLD {
     for (int i = 0; i < n_; ++i) {
       g_[i].erase(std::remove(g_[i].begin(), g_[i].end(), parent_[i]),
                   g_[i].end());
-      if (g_[i].empty()) { continue; }
+      if (g_[i].empty()) {
+        continue;
+      }
       std::swap(
           *(g_[i].begin()),
           *std::max_element(g_[i].begin(), g_[i].end(),
@@ -98,17 +102,25 @@ class BasicHLD {
 
   int Lca(int u, int v) const {
     while (head_[u] != head_[v]) {
-      if (depth_[head_[u]] > depth_[head_[v]]) { std::swap(u, v); }
+      if (depth_[head_[u]] > depth_[head_[v]]) {
+        std::swap(u, v);
+      }
       v = parent_[head_[v]];
     }
-    if (depth_[u] > depth_[v]) { std::swap(u, v); }
+    if (depth_[u] > depth_[v]) {
+      std::swap(u, v);
+    }
     return u;
   }
 
   // obviously, 0-indexed
   int LevelAncestor(int v, int h) const {
-    if (!(0 <= h && h <= depth_[v])) { return -1; }
-    while (depth_[head_[v]] > h) { v = parent_[head_[v]]; }
+    if (!(0 <= h && h <= depth_[v])) {
+      return -1;
+    }
+    while (depth_[head_[v]] > h) {
+      v = parent_[head_[v]];
+    }
     return tour_[in_[head_[v]] + h - depth_[head_[v]]];
   }
 
@@ -122,8 +134,12 @@ class BasicHLD {
     int z = Lca(u, v);
     int du = depth_[u] - depth_[z];
     int dv = depth_[v] - depth_[z];
-    if (!(0 <= k && k <= du + dv)) { return -1; }
-    if (k <= du) { return KthAncestor(u, k); }
+    if (!(0 <= k && k <= du + dv)) {
+      return -1;
+    }
+    if (k <= du) {
+      return KthAncestor(u, k);
+    }
     return KthAncestor(v, du + dv - k);
   }
 
@@ -161,7 +177,9 @@ void RunCase([[maybe_unused]] int testcase) {
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

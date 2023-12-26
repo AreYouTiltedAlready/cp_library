@@ -50,7 +50,9 @@ class FastFourierTransform {
     const auto n = static_cast<int>(std::distance(lhs_first, lhs_last));
     const auto m = static_cast<int>(std::distance(rhs_first, rhs_last));
     int dft_size = 1;
-    while (dft_size < std::max(n, m) * 2) { dft_size *= 2; }
+    while (dft_size < std::max(n, m) * 2) {
+      dft_size *= 2;
+    }
     std::vector<Complex> dft_lhs(dft_size);
     for (int i = 0; i < n; ++i) {
       dft_lhs[i].real(lhs_first[i] % (1 << 15));
@@ -105,10 +107,16 @@ class FastFourierTransform {
     const auto n = static_cast<int>(std::distance(lhs_first, lhs_last));
     const auto m = static_cast<int>(std::distance(rhs_first, rhs_last));
     int dft_size = 1;
-    while (dft_size < std::max(n, m) * 2) { dft_size *= 2; }
+    while (dft_size < std::max(n, m) * 2) {
+      dft_size *= 2;
+    }
     std::vector<Complex> dft(dft_size);
-    for (int i = 0; i < n; ++i) { dft[i].real(lhs_first[i]); }
-    for (int i = 0; i < m; ++i) { dft[i].imag(rhs_first[i]); }
+    for (int i = 0; i < n; ++i) {
+      dft[i].real(lhs_first[i]);
+    }
+    for (int i = 0; i < m; ++i) {
+      dft[i].imag(rhs_first[i]);
+    }
     (*this)(dft.begin(), dft.end());
     const Complex ratio(0.0, -0.25 / static_cast<T>(dft_size));
     std::vector<Complex> inv_dft(dft_size);
@@ -161,21 +169,29 @@ void RunCase([[maybe_unused]] int testcase) {
   std::cin >> n >> m;
 
   std::vector<int> p(n);
-  for (int& i : p) { std::cin >> i; }
+  for (int& i : p) {
+    std::cin >> i;
+  }
 
   std::vector<int> q(m);
-  for (int& i : q) { std::cin >> i; }
+  for (int& i : q) {
+    std::cin >> i;
+  }
 
   FastFourierTransform<long double, 20> fft{};
   std::vector<int> C =
       fft.ConvolutionMod(p.cbegin(), p.cend(), q.cbegin(), q.cend(), 998244353);
-  for (int c : C) { std::cout << c << " "; }
+  for (int c : C) {
+    std::cout << c << " ";
+  }
 }
 
 void Main() {
   int testcases = 1;
   // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) { RunCase(tt); }
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
 }
 
 }  // namespace

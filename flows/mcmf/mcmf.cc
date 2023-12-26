@@ -1,7 +1,5 @@
 #include <algorithm>
 #include <ext/pb_ds/priority_queue.hpp>
-#include <limits>
-#include <vector>
 
 // Calculates MCMF in $O(VE + |F|E\log V)
 // Uses Ford-Bellman for potentials initialization and Dijkstra on heap for
@@ -66,7 +64,9 @@ class MinCostFlowGraph {
       heap_.pop();
       for (int eid : g_[v]) {
         const Edge& e = edges_[eid];
-        if (e.cap == e.flow) { continue; }
+        if (e.cap == e.flow) {
+          continue;
+        }
         if (C new_cost = -d + e.cost + pot_[e.from] - pot_[e.to];
             new_cost < distance_[e.to]) {
           sp_edge_[e.to] = eid;
@@ -84,7 +84,9 @@ class MinCostFlowGraph {
     if (distance_[sink_] != kUnreachable) {
       std::replace(distance_.begin(), distance_.end(), kUnreachable,
                    static_cast<C>(0));
-      for (int i = 0; i < n_; ++i) { pot_[i] += distance_[i]; }
+      for (int i = 0; i < n_; ++i) {
+        pot_[i] += distance_[i];
+      }
     }
   }
 
@@ -94,7 +96,9 @@ class MinCostFlowGraph {
 
     const bool negative_edges = [&]() -> bool {
       for (int i = 0; i < edges_.size() / 2; ++i) {
-        if (edges_[i * 2].cost < 0) { return true; }
+        if (edges_[i * 2].cost < 0) {
+          return true;
+        }
       }
       return false;
     }();
@@ -107,7 +111,9 @@ class MinCostFlowGraph {
         any = false;
         for (int i = 0; i < static_cast<int>(edges_.size()); i += 2) {
           const Edge& e = edges_[i];
-          if (pot_[e.from] == kUnreachable) { continue; }
+          if (pot_[e.from] == kUnreachable) {
+            continue;
+          }
           if (C new_cost = pot_[e.from] + e.cost; new_cost < pot_[e.to]) {
             any = true;
             pot_[e.to] = new_cost;
