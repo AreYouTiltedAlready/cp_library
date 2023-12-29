@@ -170,14 +170,16 @@ class FlowGraph {
 
   std::vector<int> MinCut() const {
     std::vector<char> reachable(n_);
-    y_combinator([&](auto&& dfs, int v) -> void {
-      reachable[v] = true;
+    simple_queue<int> que(n_);
+    que.push(source_);
+    while (!que.empty()) {
+      int v = que.poll();
       for (int eid : g_[v]) {
         if (const Edge& e = edges_[eid]; e.cap > e.flow && !reachable[e.to]) {
-          dfs(e.to);
+          que.push(e.to);
         }
       }
-    })(source_);
+    }
     std::vector<int> result;
     result.reserve(edges_.size() / 2);
     for (int i = 0; i < static_cast<int>(edges_.size()); i += 2) {
