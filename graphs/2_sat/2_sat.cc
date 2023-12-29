@@ -1,46 +1,25 @@
 #include <algorithm>
 #include <vector>
 
-template <class Fun>
-class y_combinator_result {
-  Fun fun_;
-
- public:
-  template <class T>
-  explicit y_combinator_result(T&& fun)
-      : fun_(std::forward<T>(fun)) {
-  }  // NOLINT(*-forwarding-reference-overload)
-
-  template <class... Args>
-  decltype(auto) operator()(Args&&... args) {
-    return fun_(std::ref(*this), std::forward<Args>(args)...);
-  }
-};
-
-template <class Fun>
-decltype(auto) y_combinator(Fun&& fun) {
-  return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
-}
-
 std::vector<int> FindSCC(const std::vector<std::vector<int>>& g) {
   const int n = static_cast<int>(g.size());
   std::vector<int> order;
   order.reserve(n);
   {
     std::vector<char> used(n);
-    auto Dfs = y_combinator([&](auto&& dfs, int v) -> void {
+    auto Dfs = [&](auto& self, int v) -> void {
       used[v] = true;
       for (int to : g[v]) {
         if (!used[to]) {
-          dfs(to);
+          self(self, to);
         }
       }
       order.push_back(v);
-    });
+    };
 
     for (int i = 0; i < n; ++i) {
       if (!used[i]) {
-        Dfs(i);
+        Dfs(Dfs, i);
       }
     }
   }
@@ -57,18 +36,18 @@ std::vector<int> FindSCC(const std::vector<std::vector<int>>& g) {
   }(g);
   int current_id = 0;
   std::vector<int> scc_id(n, -1);
-  auto Dfs = y_combinator([&](auto&& dfs, int v) -> void {
+  auto Dfs = [&](auto& self, int v) -> void {
     scc_id[v] = current_id;
     for (int to : g_rev[v]) {
       if (scc_id[to] == -1) {
-        dfs(to);
+        self(self, to);
       }
     }
-  });
+  };
   std::reverse(order.begin(), order.end());
   for (int id : order) {
     if (scc_id[id] == -1) {
-      Dfs(id);
+      Dfs(Dfs, id);
       current_id += 1;
     }
   }
@@ -78,7 +57,7 @@ std::vector<int> FindSCC(const std::vector<std::vector<int>>& g) {
 class TwoSat {
  public:
   explicit TwoSat(int n) : n_(n), g_(2 * n) {}
-  
+
   void AddClause(int u, int value_u, int v, int value_v) {
     g_[u * 2 + value_u].push_back(v * 2 + value_v);
     g_[v * 2 + (value_v ^ 1)].push_back(u * 2 + (value_u ^ 1));

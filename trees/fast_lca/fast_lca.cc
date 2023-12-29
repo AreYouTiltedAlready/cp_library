@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cassert>
-#include <memory>
 #include <numeric>
 #include <vector>
 
@@ -137,7 +136,7 @@ class LcaForest {
         euler_depths[i] = depth_[euler_[i]];
       }
     }
-    rmq_ptr_ = std::make_unique<RmqSolverMin<int>>(std::move(euler_depths));
+    rmq_ptr_ = new RmqSolverMin<int>(std::move(euler_depths));
   }
 
   // IsAncestor(u, u) is true for all u
@@ -188,6 +187,8 @@ class LcaForest {
     return KthAncestor(v, du + dv - k);
   }
 
+  ~LcaForest() { delete rmq_ptr_; }
+
  private:
   void SizeDfs(int v) {
     size_[v] = 1;
@@ -229,6 +230,6 @@ class LcaForest {
   std::vector<int> size_;
   std::vector<int> depth_;
   std::vector<int> parent_;
-  std::unique_ptr<RmqSolverMin<int>> rmq_ptr_;
+  RmqSolverMin<int>* rmq_ptr_;
   std::vector<std::vector<int>> g_;
 };
