@@ -43,6 +43,7 @@ class BasicHLD {
         size_[v] += size_[to];
       }
     };
+    Dfs(Dfs, root);
     for (int i = 0; i < n_; ++i) {
       g_[i].erase(std::remove(g_[i].begin(), g_[i].end(), parent_[i]),
                   g_[i].end());

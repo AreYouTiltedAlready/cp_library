@@ -1,5 +1,4 @@
 #include <functional>
-#include <vector>
 
 // Fully generic implementation of lazy segment tree
 // Unlike bottom-up implementation, this one does not need neutral element
