@@ -22,13 +22,13 @@ class SuffixTree {
     int last = MakeNode(1, sa[0], n_ - sa[0]);
     tree_[1].edges.emplace_back(s_[sa[0]], last);
     for (int i = 1; i < n_; ++i) {
-      Extend(&last, sa[i], lcp[i - 1]);
+      last = Extend(last, sa[i], lcp[i - 1]);
     }
     int id = 0;
     int euler_id = 0;
     tour_list_.resize(size_ - 1);
     euler_tour_.resize(2 * size_ - 1);
-    auto Dfs = [&](auto&& self, int v) -> void {
+    auto Dfs = [&](auto& self, int v) -> void {
       tour_list_[id++] = v;
       euler_tour_[euler_id++] = v;
       for (const auto& [c, to] : tree_[v].edges) {
@@ -66,24 +66,24 @@ class SuffixTree {
     return result;
   }
 
-  void Extend(int* state, int id, int lcp) {
-    int weighted_depth = tree_[*state].weighted_depth;
-    int e_pos = tree_[*state].length;
+  int Extend(int state, int id, int lcp) {
+    int weighted_depth = tree_[state].weighted_depth;
+    int e_pos = tree_[state].length;
     while (weighted_depth > lcp) {
       if (int delta = weighted_depth - lcp; e_pos <= delta) {
         weighted_depth -= e_pos;
-        *state = tree_[*state].parent;
-        e_pos = tree_[*state].length;
+        state = tree_[state].parent;
+        e_pos = tree_[state].length;
       } else {
         weighted_depth -= delta;
         e_pos -= delta;
       }
     }
     id += lcp;
-    *state = Split(*state, e_pos);
-    int next = MakeNode(*state, id, n_ - id);
-    tree_[*state].edges.emplace_back(s_[id], next);
-    *state = next;
+    state = Split(state, e_pos);
+    int next = MakeNode(state, id, n_ - id);
+    tree_[state].edges.emplace_back(s_[id], next);
+    return next;
   }
 
   int size_;

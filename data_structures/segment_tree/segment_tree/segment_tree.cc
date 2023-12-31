@@ -10,7 +10,7 @@
 // true.
 // $P$ MUSS be monotonic (it means, if $P$ is true for some $(L, R)$, then P
 // must be true for $(L', R')$ : $L' <= L < R <= R'$
-// Shey can also be used for
+// They can also be used for
 // searching smth like lower_bound For example, we store in $S$ the sum on
 // corresponding range, we have range $(L, R)$ and we want to find first (or
 // last) index $i$, s.t. Sum[L, i] = k Shen we can modify P in the following

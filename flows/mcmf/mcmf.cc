@@ -11,9 +11,12 @@
 // Negative cycles are not allowed
 // If you need some auxiliary stuff like decomposition, mincut etc., take a look
 // on Dinic implementation - all these utils can be implemented in the same way
-template <typename F, typename C>
+template <typename Flow, typename Cost>
 class MinCostFlowGraph {
  public:
+  using flow_t = F;
+  using cost_t = Cost;
+
   struct Edge {
     Edge() : cap(0), flow(0), cost(0), from(0), to(0) {}
     Edge(int from, int to, F cap, C cost)
@@ -27,30 +30,31 @@ class MinCostFlowGraph {
   };
 
   explicit MinCostFlowGraph(int n, int m, int source, int sink)
-      : n_(n),
-        source_(source),
-        sink_(sink),
+      : edges_(m * 2),
         pot_(n),
-        path_(n),
         distance_(n),
-        edges_(),
+        path_(n),
         sp_edge_(n),
         g_(n),
         heap_(),
-        its_(n) {
-    edges_.reserve(m * 2);
-  }
+        its_(n),
+        n_(n),
+        m_(m),
+        source_(source),
+        sink_(sink) {}
 
-  int AddEdge(int from, int to, F cap, C cost) {
-    int id = static_cast<int>(edges_.size());
-    edges_.emplace_back(from, to, cap, cost);
-    edges_.emplace_back(to, from, 0, -cost);
+  int AddEdge(int from, int to, flow_t cap, cost_t cost) {
+    int id = m_;
+    edges_[m_++] = {from, to, cap, cost};
+    edges_[m_++] = {to, from, 0, -cost};
     g_[from].push_back(id);
     g_[to].push_back(id + 1);
     return id;
   }
 
   [[nodiscard]] const Edge& GetEdge(int id) const { return edges_[id]; }
+
+  [[nodiscard]] const std::vector<Edge>& Edges() const { return edges_; }
 
   void FindPath() {
     heap_.clear();
@@ -62,20 +66,20 @@ class MinCostFlowGraph {
     while (!heap_.empty()) {
       auto [d, v] = heap_.top();
       heap_.pop();
-      for (int eid : g_[v]) {
-        const Edge& e = edges_[eid];
-        if (e.cap == e.flow) {
+      for (int e_id : g_[v]) {
+        const Edge& edge = edges_[e_id];
+        if (edge.cap == edge.flow) {
           continue;
         }
-        if (C new_cost = -d + e.cost + pot_[e.from] - pot_[e.to];
-            new_cost < distance_[e.to]) {
-          sp_edge_[e.to] = eid;
-          distance_[e.to] = new_cost;
-          auto new_pair = std::make_pair(-new_cost, e.to);
-          if (its_[e.to] == heap_.end()) {
-            its_[e.to] = heap_.push(new_pair);
+        if (cost_t new_cost = -d + edge.cost + pot_[edge.from] - pot_[edge.to];
+            new_cost < distance_[edge.to]) {
+          sp_edge_[edge.to] = e_id;
+          distance_[edge.to] = new_cost;
+          auto new_pair = std::make_pair(-new_cost, edge.to);
+          if (its_[edge.to] == heap_.end()) {
+            its_[edge.to] = heap_.push(new_pair);
           } else {
-            heap_.modify(its_[e.to], new_pair);
+            heap_.modify(its_[edge.to], new_pair);
           }
         }
       }
@@ -83,16 +87,17 @@ class MinCostFlowGraph {
 
     if (distance_[sink_] != kUnreachable) {
       std::replace(distance_.begin(), distance_.end(), kUnreachable,
-                   static_cast<C>(0));
+                   static_cast<cost_t>(0));
       for (int i = 0; i < n_; ++i) {
         pot_[i] += distance_[i];
       }
     }
   }
 
-  std::pair<F, C> MinCostFlow(F flow_limit = std::numeric_limits<F>::max()) {
-    F flow = 0;
-    C cost = 0;
+  std::pair<flow_t, cost_t> MinCostFlow(
+      F flow_limit = std::numeric_limits<F>::max()) {
+    flow_t flow = 0;
+    cost_t cost = 0;
 
     const bool negative_edges = [&]() -> bool {
       for (int i = 0; i < edges_.size() / 2; ++i) {
@@ -110,13 +115,14 @@ class MinCostFlowGraph {
       while (any) {
         any = false;
         for (int i = 0; i < static_cast<int>(edges_.size()); i += 2) {
-          const Edge& e = edges_[i];
-          if (pot_[e.from] == kUnreachable) {
+          const Edge& edge = edges_[i];
+          if (pot_[edge.from] == kUnreachable) {
             continue;
           }
-          if (C new_cost = pot_[e.from] + e.cost; new_cost < pot_[e.to]) {
+          if (cost_t new_cost = pot_[edge.from] + edge.cost;
+              new_cost < pot_[edge.to]) {
             any = true;
-            pot_[e.to] = new_cost;
+            pot_[edge.to] = new_cost;
           }
         }
       }
@@ -130,22 +136,22 @@ class MinCostFlowGraph {
         int id = 0;
         int v = sink_;
         while (v != source_) {
-          int eid = sp_edge_[v];
-          path_[id++] = eid;
-          const Edge& e = edges_[eid];
-          v = e.from;
-          path_min = std::min(path_min, e.cap - e.flow);
+          int e_id = sp_edge_[v];
+          path_[id++] = e_id;
+          const Edge& edge = edges_[e_id];
+          v = edge.from;
+          path_min = std::min(path_min, edge.cap - edge.flow);
         }
         return id;
       }();
 
-      C additional = 0;
+      cost_t additional = 0;
       flow += path_min;
       for (int i = 0; i < path_length; ++i) {
-        Edge& e = edges_[path_[i]];
-        Edge& back = edges_[path_[i] ^ 1];
-        e.flow += path_min;
-        back.flow -= path_min;
+        Edge& edge = edges_[path_[i]];
+        Edge& back_edge = edges_[path_[i] ^ 1];
+        edge.flow += path_min;
+        back_edge.flow -= path_min;
         additional += e.cost;
       }
 
@@ -157,17 +163,19 @@ class MinCostFlowGraph {
   }
 
  private:
-  static constexpr C kUnreachable = std::numeric_limits<C>::max() / 2;
+  static constexpr cost_t kUnreachable = std::numeric_limits<cost_t>::max() / 2;
 
-  const int n_;
-  const int source_;
-  const int sink_;
-  std::vector<C> pot_;
-  std::vector<int> path_;
-  std::vector<C> distance_;
   std::vector<Edge> edges_;
+  std::vector<cost_t> pot_;
+  std::vector<cost_t> distance_;
+  std::vector<int> path_;
   std::vector<int> sp_edge_;
   std::vector<std::vector<int>> g_;
-  __gnu_pbds::priority_queue<std::pair<C, int>> heap_;
+  __gnu_pbds::priority_queue<std::pair<cost_t, int>> heap_;
   std::vector<typename decltype(heap_)::point_iterator> its_;
+
+  int n_;
+  int m_;
+  const int source_;
+  const int sink_;
 };
