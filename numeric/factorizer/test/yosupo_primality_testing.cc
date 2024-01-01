@@ -1,10 +1,38 @@
+// https://judge.yosupo.jp/problem/primality_test
+// https://judge.yosupo.jp/submission/180865
+
 #include <array>
 #include <bit>
+#include <cassert>
 #include <chrono>
+#include <iostream>
+#include <limits>
 #include <map>
 #include <numeric>
 #include <random>
 #include <vector>
+
+namespace {
+
+template <class Fun>
+class y_combinator_result {
+  Fun fun_;
+
+ public:
+  template <class T>
+  explicit y_combinator_result(T&& fun)  // NOLINT(*forwarding-reference*)
+      : fun_(std::forward<T>(fun)) {}
+
+  template <class... Args>
+  decltype(auto) operator()(Args&&... args) {
+    return fun_(std::ref(*this), std::forward<Args>(args)...);
+  }
+};
+
+template <class Fun>
+decltype(auto) y_combinator(Fun&& fun) {
+  return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
+}
 
 namespace math {
 
@@ -301,3 +329,25 @@ class Factorizer {
 };
 
 }  // namespace math
+
+void RunCase([[maybe_unused]] int testcase) {
+  int64_t n;
+  std::cin >> n;
+  std::cout << (math::Factorizer::IsPrime(n) ? "Yes\n" : "No\n");
+}
+
+void Main() {
+  int testcases = 1;
+  std::cin >> testcases;
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
+}
+}  // namespace
+
+int main() {
+  std::ios_base::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+  Main();
+  return 0;
+}

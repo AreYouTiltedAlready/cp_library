@@ -1,4 +1,16 @@
-#include <bits/stdc++.h>
+// https://judge.yosupo.jp/submission/180863
+// https://judge.yosupo.jp/problem/factorize
+
+#include <array>
+#include <bit>
+#include <cassert>
+#include <chrono>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <numeric>
+#include <random>
+#include <vector>
 
 namespace {
 
@@ -25,7 +37,7 @@ decltype(auto) y_combinator(Fun&& fun) {
 namespace math {
 
 namespace internal {
-namespace type_traits {
+namespace integral_type_traits {
 
 template <typename T>
 struct integral_promotion {
@@ -52,47 +64,50 @@ struct integral_promotion<uint64_t> {
   using type = __uint128_t;
 };
 
-}  // namespace type_traits
-
-namespace bit {
-
-uint32_t countr_zero(uint64_t n) { return __builtin_ctzll(n); }
-
-uint32_t countr_zero(uint32_t n) { return __builtin_ctz(n); }
-
-}  // namespace bit
+}  // namespace integral_type_traits
 
 template <typename T>
-using integral_promotion_t = typename type_traits::integral_promotion<T>::type;
+using integral_promotion_t =
+    typename integral_type_traits::integral_promotion<T>::type;
+
+namespace montgomery {
 
 template <typename T>
-class Montgomery {
+class MontgomerySpace {
  public:
   using signed_t = std::make_signed_t<T>;
   using unsigned_t = std::make_unsigned_t<T>;
-  using promote_t = integral_promotion_t<unsigned_t>;
-  static constexpr int kTBitWidth = sizeof(T) * 8;
+  using promoted_t = integral_promotion_t<unsigned_t>;
+  static constexpr int kTBitWidth = std::numeric_limits<unsigned_t>::digits;
 
-  constexpr explicit Montgomery(T mod)
+  constexpr explicit MontgomerySpace(T mod)
       : mod_(mod),
-        r_square_((static_cast<promote_t>(1) << kTBitWidth) % mod),
+        r_square_((static_cast<promoted_t>(1) << kTBitWidth) % mod),
         mod_inverse_(1) {
-    r_square_ = static_cast<promote_t>(r_square_) * r_square_ % mod;
+    r_square_ = static_cast<promoted_t>(r_square_) * r_square_ % mod;
     for (int i = 0; i < 6; ++i) {
       mod_inverse_ *= static_cast<unsigned_t>(2) - mod_ * mod_inverse_;
     }
   }
 
   [[nodiscard]] constexpr unsigned_t Sum(unsigned_t lhs, unsigned_t rhs) const {
-    if (static_cast<signed_t>(lhs += rhs - mod_ * 2) < 0) {
-      lhs += mod_ * 2;
+    if (static_cast<signed_t>(lhs += rhs - (mod_ << 1)) < 0) {
+      lhs += mod_ << 1;
+    }
+    return lhs;
+  }
+
+  [[nodiscard]] constexpr unsigned_t Difference(unsigned_t lhs,
+                                                unsigned_t rhs) const {
+    if (static_cast<signed_t>(lhs -= rhs) < 0) {
+      lhs += mod_ << 1;
     }
     return lhs;
   }
 
   [[nodiscard]] constexpr unsigned_t Product(unsigned_t lhs,
                                              unsigned_t rhs) const {
-    return Reduce(static_cast<promote_t>(lhs) * rhs);
+    return Reduce(static_cast<promoted_t>(lhs) * rhs);
   }
 
   [[nodiscard]] constexpr bool AreEqual(unsigned_t lhs, unsigned_t rhs) const {
@@ -112,9 +127,9 @@ class Montgomery {
   }
 
   // returns a value congruent to mod in range [0, 2 * mod)
-  [[nodiscard]] constexpr unsigned_t Reduce(promote_t n) const {
+  [[nodiscard]] constexpr unsigned_t Reduce(promoted_t n) const {
     unsigned_t q = static_cast<unsigned_t>(n) * mod_inverse_;
-    unsigned_t m = (static_cast<promote_t>(q) * mod_) >> kTBitWidth;
+    unsigned_t m = (static_cast<promoted_t>(q) * mod_) >> kTBitWidth;
     return (n >> kTBitWidth) + mod_ - m;
   }
 
@@ -127,6 +142,8 @@ class Montgomery {
   unsigned_t r_square_;
   unsigned_t mod_inverse_;
 };
+
+}  // namespace montgomery
 
 }  // namespace internal
 
@@ -169,9 +186,9 @@ class Factorizer {
       }
       return res;
     }
-    T d = PollardRho(n);
-    auto left = Factorize(d);
-    auto right = Factorize(n / d);
+    T divisor = PollardRho(n);
+    auto left = Factorize(divisor);
+    auto right = Factorize(n / divisor);
     if (left.size() < right.size()) {
       std::swap(left, right);
     }
@@ -193,10 +210,10 @@ class Factorizer {
     if (a == 0 || b == 0) {
       return a + b;
     }
-    int common = static_cast<int>(internal::bit::countr_zero(a | b));
-    b >>= internal::bit::countr_zero(b);
+    int common = std::countr_zero(a | b);
+    b >>= std::countr_zero(b);
     do {
-      a >>= internal::bit::countr_zero(a);
+      a >>= std::countr_zero(a);
       if (a < b) {
         std::swap(a, b);
       }
@@ -217,20 +234,20 @@ class Factorizer {
     }
 
     using unsigned_t = std::make_unsigned_t<T>;
-    const internal::Montgomery<T> space(n);
+    const internal::montgomery::MontgomerySpace<T> space(n);
 
     unsigned_t increment{};
     auto g = [&](unsigned_t x) -> unsigned_t {
       return space.Sum(space.Product(x, x), increment);
     };
 
-    auto jump = static_cast<int>((sqrtl(logl(n) * sqrtl(sqrtl(n)))));
+    const auto jump = static_cast<int>((sqrtl(logl(n) * sqrtl(sqrtl(n)))));
     while (true) {
       increment = space.Transform(rng() % n);
       unsigned_t start = space.Transform(rng() % n);
       unsigned_t x = start;
       unsigned_t y = start;
-      unsigned_t result_gcd = 1;
+      unsigned_t result_gcd{};
       std::vector<unsigned_t> products(jump + 1);
       do {
         products[0] = space.Transform(1U);
@@ -274,9 +291,9 @@ class Factorizer {
     }
 
     // safe because n is odd
-    const internal::Montgomery<T> space(n);
-    const int rank = static_cast<int>(internal::bit::countr_zero(
-        static_cast<std::make_unsigned_t<T>>(n - 1)));
+    const internal::montgomery::MontgomerySpace<T> space(n);
+    const int rank =
+        std::countr_zero(static_cast<std::make_unsigned_t<T>>(n - 1));
     const T d = (n - 1) >> rank;
     const T unit = space.Transform(1);
     const T neg_unit = space.Transform(n - 1);
@@ -312,9 +329,6 @@ class Factorizer {
 };
 
 }  // namespace math
-
-// https://judge.yosupo.jp/problem/factorize
-// https://judge.yosupo.jp/submission/180797
 
 void RunCase([[maybe_unused]] int testcase) {
   math::Factorizer factorizer(1e6);
