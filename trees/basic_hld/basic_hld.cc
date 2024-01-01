@@ -12,9 +12,9 @@ class BasicHLD {
       : n_(n),
         in_(n),
         out_(n),
+        head_(n),
         tour_(n),
         size_(n),
-        head_(n),
         depth_(n),
         parent_(n),
         g_(n) {}
@@ -125,7 +125,6 @@ class BasicHLD {
   }
 
  private:
-  int n_;
   std::vector<int> in_;
   std::vector<int> out_;
   std::vector<int> head_;
@@ -134,4 +133,6 @@ class BasicHLD {
   std::vector<int> depth_;
   std::vector<int> parent_;
   std::vector<std::vector<int>> g_;
+
+  int n_;
 };
