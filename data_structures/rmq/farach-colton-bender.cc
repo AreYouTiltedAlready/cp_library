@@ -1,26 +1,14 @@
-#include <bits/stdc++.h>
+#include <cstdint>
+#include <cstdlib>
+#include <numeric>
+#include <vector>
 
-namespace {
+// Range M(ax)|(in)imum Query problem solver
+// Time: $O(n)$ / $O(1)$
+// GetIndex(first, last) always yields the FIRST occurrence of min/max in range
+namespace rmq {
 
-template <class Fun>
-class y_combinator_result {
-  Fun fun_;
-
- public:
-  template <class T>
-  explicit y_combinator_result(T&& fun)  // NOLINT(*forwarding-reference*)
-      : fun_(std::forward<T>(fun)) {}
-
-  template <class... Args>
-  decltype(auto) operator()(Args&&... args) {
-    return fun_(std::ref(*this), std::forward<Args>(args)...);
-  }
-};
-
-template <class Fun>
-decltype(auto) y_combinator(Fun&& fun) {
-  return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
-}
+namespace internal {
 
 namespace bit {
 
@@ -146,40 +134,12 @@ class RMQSolver {
   int blocks_count_;
 };
 
-// https://judge.yosupo.jp/problem/staticrmq
-// https://judge.yosupo.jp/submission/180552
-void RunCase([[maybe_unused]] int testcase) {
-  int n;
-  int q;
-  std::cin >> n >> q;
+}  // namespace internal
 
-  std::vector<int> values(n);
-  for (int& it : values) {
-    std::cin >> it;
-  }
+template <typename T>
+using RMQMaxSolver = internal::RMQSolver<T, internal::RMQMode::kMax>;
 
-  RMQSolver<int, RMQMode::kMin> rmq_solver(std::move(values));
-  while (q--) {
-    int first;
-    int last;
-    std::cin >> first >> last;
-    std::cout << rmq_solver.GetValue(first, last) << "\n";
-  }
-}
+template <typename T>
+using RMQMinSolver = internal::RMQSolver<T, internal::RMQMode::kMin>;
 
-void Main() {
-  int testcases = 1;
-  // std::cin >> testcases;
-  for (int tt = 1; tt <= testcases; ++tt) {
-    RunCase(tt);
-  }
-}
-
-}  // namespace
-
-int main() {
-  std::ios_base::sync_with_stdio(false);
-  std::cin.tie(nullptr);
-  Main();
-  return 0;
-}
+}  // namespace rmq

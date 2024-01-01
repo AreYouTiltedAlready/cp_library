@@ -1,39 +1,103 @@
-#include <algorithm>
-#include <cassert>
-#include <numeric>
-#include <vector>
+#include <bits/stdc++.h>
 
-enum class RmqMode {
+namespace rmq {
+
+namespace internal {
+
+namespace bit {
+
+uint32_t countr_zero(uint32_t n) { return __builtin_ctz(n); }
+uint32_t countl_zero(uint32_t n) { return __builtin_clz(n); }
+
+}  // namespace bit
+
+enum class RMQMode {
   kMax,
   kMin,
 };
 
-template <typename T, RmqMode mode>
-class RmqSolver {
+template <typename T, RMQMode mode>
+class RMQSolver {
  public:
+  static constexpr uint32_t kBlockLength = 32;
+
+  RMQSolver()
+      : values_(), small_blocks_(), blocks_table_(), n_(0), blocks_count_() {}
+
   template <typename U, typename std::enable_if_t<
                             std::is_same_v<std::decay_t<U>, std::vector<T>>,
                             void>* = nullptr>
-  explicit RmqSolver(U values) : values_(values) {
-    const int n = static_cast<int>(values.size());  // n = 0 is not allowed
-    const int log = std::__lg(n * 2);
-    matrix_.resize(log);
-    for (int i = 0; i < log; ++i) {
-      matrix_[i].resize(n - (1 << i) + 1);
+  explicit RMQSolver(U&& values)
+      : values_(std::forward<U>(values)),
+        small_blocks_(static_cast<int>(values_.size())),
+        n_(static_cast<int>(values_.size())),
+        blocks_count_((static_cast<int>(values_.size()) + kBlockLength - 1) /
+                      kBlockLength) {
+    // building last 32 elements of monotonic stack for each index
+    {
+      std::vector<int> stack;
+      stack.reserve(n_);
+      stack.push_back(0);
+      small_blocks_[0] = 1;
+      for (int i = 1; i < n_; ++i) {
+        small_blocks_[i] = small_blocks_[i - 1] << 1;
+        while (!stack.empty() && values_[stack.back()] >= values_[i]) {
+          if (int d = i - stack.back(); d < kBlockLength) {
+            small_blocks_[i] ^= 1U << d;
+          }
+          stack.pop_back();
+        }
+        stack.push_back(i);
+        small_blocks_[i] += 1;
+      }
     }
-    std::iota(matrix_.front().begin(), matrix_.front().end(), 0);
-    for (int i = 1; i < log; ++i) {
-      for (int j = 0; j < n - (1 << i) + 1; ++j) {
-        matrix_[i][j] =
-            Merger(matrix_[i - 1][j], matrix_[i - 1][j + (1 << (i - 1))]);
+
+    // Building the sparse table for blocks of size n / kBlockLength
+    {
+      const int blocks_log =
+          32 - static_cast<int>(bit::countl_zero(blocks_count_));
+      blocks_table_.resize(blocks_log);
+      for (int i = 0; i < blocks_log; ++i) {
+        blocks_table_[i].resize(blocks_count_ - (1 << i) + 1);
+      }
+      for (int i = 0; i < blocks_count_; ++i) {
+        blocks_table_[0][i] = static_cast<int>(i * kBlockLength);
+      }
+      for (int i = 0; i < n_; ++i) {
+        blocks_table_[0][i / kBlockLength] =
+            Merger(blocks_table_[0][i / kBlockLength], i);
+      }
+      for (int i = 1; i < blocks_log; ++i) {
+        for (int j = 0; j < blocks_count_ - (1 << i) + 1; ++j) {
+          blocks_table_[i][j] =
+              Merger(blocks_table_[i - 1][j],
+                     blocks_table_[i - 1][j + (1 << (i - 1))]);
+        }
       }
     }
   }
 
-  // [first, last) : first == last is not allowed
-  [[nodiscard]] T GetIndex(int first, int last) const {
-    const auto level = std::__lg(last - first);
-    return Merger(matrix_[level][first], matrix_[level][last - (1 << level)]);
+  [[nodiscard]] int GetIndex(int first, int last) const {
+    auto [first_q, first_r] = std::div(first, kBlockLength);
+    auto [last_q, last_r] = std::div(last, kBlockLength);
+    if (first_q == last_q) {
+      return GetSmallBlock(last - 1, last - first);
+    }
+
+    int result = first;
+    if (first_r != 0) {
+      result = Merger(result, GetSmallBlock(first + kBlockLength - 1 - first_r,
+                                            kBlockLength - first_r));
+      first_q += 1;
+    }
+    if (last_r != 0) {
+      result = Merger(result, GetSmallBlock(last - 1, last_r));
+    }
+    if (first_q < last_q) {
+      result = Merger(result, GetOnBlocks(first_q, last_q));
+    }
+
+    return result;
   }
 
   [[nodiscard]] T GetValue(int first, int last) const {
@@ -41,22 +105,41 @@ class RmqSolver {
   }
 
  private:
-  inline int Merger(int lhs, int rhs) const {
-    if constexpr (mode == RmqMode::kMin) {
+  [[nodiscard]] inline int GetSmallBlock(int right, int length) const {
+    return right -
+           (31 - bit::countl_zero(small_blocks_[right] & ((1U << length) - 1)));
+  }
+
+  [[nodiscard]] inline int GetOnBlocks(int first, int last) const {
+    uint32_t level = 31U - bit::countl_zero(last - first);
+    return Merger(blocks_table_[level][first],
+                  blocks_table_[level][last - (1 << level)]);
+  }
+
+  [[nodiscard]] inline int Merger(int lhs, int rhs) const {
+    if constexpr (mode == RMQMode::kMin) {
       return values_[lhs] < values_[rhs] ? lhs : rhs;
     }
     return values_[lhs] > values_[rhs] ? lhs : rhs;
   }
 
   std::vector<T> values_;
-  std::vector<std::vector<int>> matrix_;
+  std::vector<uint32_t> small_blocks_;
+  std::vector<std::vector<int>> blocks_table_;
+
+  int n_;
+  int blocks_count_;
 };
 
-template <typename T>
-using RmqSolverMax = RmqSolver<T, RmqMode::kMax>;
+}  // namespace internal
 
 template <typename T>
-using RmqSolverMin = RmqSolver<T, RmqMode::kMin>;
+using RMQMaxSolver = internal::RMQSolver<T, internal::RMQMode::kMax>;
+
+template <typename T>
+using RMQMinSolver = internal::RMQSolver<T, internal::RMQMode::kMin>;
+
+}  // namespace rmq
 
 // Okay, this is just a generalization of basic hld (on top of hld, we maintain
 // euler tour for lca in $O(1))
@@ -79,7 +162,7 @@ class LcaForest {
         parent_(n),
         euler_(n * 2),
         g_(n),
-        rmq_ptr_(nullptr) {}
+        rmq_solver_() {}
 
   explicit LcaForest(const std::vector<std::vector<int>>& g)
       : LcaForest(static_cast<int>(g.size())) {
@@ -91,7 +174,7 @@ class LcaForest {
     g_[v].push_back(u);
   }
 
-  void Build(std::vector<int> roots = std::vector<int>(1, 0)) {
+  void Build(const std::vector<int>& roots = std::vector<int>(1, 0)) {
     if (!roots.empty()) {
       for (int root : roots) {
         head_[root] = parent_[root] = root;
@@ -136,29 +219,29 @@ class LcaForest {
         euler_depths[i] = depth_[euler_[i]];
       }
     }
-    rmq_ptr_ = new RmqSolverMin<int>(std::move(euler_depths));
+    rmq_solver_ = rmq::RMQMinSolver<int>(std::move(euler_depths));
   }
 
   // IsAncestor(u, u) is true for all u
-  bool IsAncestor(int u, int v) const {
+  [[nodiscard]] bool IsAncestor(int u, int v) const {
     return in_[u] <= in_[v] && in_[v] < out_[u];
   }
 
   // Is z on the path from u to v
-  bool LiesOnPath(int z, int u, int v) const {
+  [[nodiscard]] bool LiesOnPath(int z, int u, int v) const {
     return IsAncestor(Lca(u, v), z) && (IsAncestor(z, u) || IsAncestor(z, v));
   }
 
-  int Lca(int u, int v) const {
-    assert(rmq_ptr_ != nullptr);
+  // -1 if not connected
+  [[nodiscard]] int Lca(int u, int v) const {
     if (entry_[u] > entry_[v]) {
       std::swap(u, v);
     }
-    return euler_[rmq_ptr_->GetIndex(entry_[u], entry_[v] + 1)];
+    return euler_[rmq_solver_.GetIndex(entry_[u], entry_[v] + 1)];
   }
 
   // obviously, 0-indexed
-  int LevelAncestor(int v, int h) const {
+  [[nodiscard]] int LevelAncestor(int v, int h) const {
     if (!(0 <= h && h <= depth_[v])) {
       return -1;
     }
@@ -168,13 +251,13 @@ class LcaForest {
     return tour_[in_[head_[v]] + h - depth_[head_[v]]];
   }
 
-  int KthAncestor(int v, int k) const {
+  [[nodiscard]] int KthAncestor(int v, int k) const {
     return LevelAncestor(v, depth_[v] - k);
   }
 
   // 0-indexed
   // yields -1 if distance(u, v) > k
-  int KthNodeOnPath(int u, int v, int k) const {
+  [[nodiscard]] int KthNodeOnPath(int u, int v, int k) const {
     int z = Lca(u, v);
     int du = depth_[u] - depth_[z];
     int dv = depth_[v] - depth_[z];
@@ -186,8 +269,6 @@ class LcaForest {
     }
     return KthAncestor(v, du + dv - k);
   }
-
-  ~LcaForest() { delete rmq_ptr_; }
 
  private:
   void SizeDfs(int v) {
@@ -230,6 +311,6 @@ class LcaForest {
   std::vector<int> size_;
   std::vector<int> depth_;
   std::vector<int> parent_;
-  RmqSolverMin<int>* rmq_ptr_;
   std::vector<std::vector<int>> g_;
+  rmq::RMQMinSolver<int> rmq_solver_;
 };

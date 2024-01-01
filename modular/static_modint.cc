@@ -1,153 +1,180 @@
 #include <cstdint>
 #include <iostream>
+#include <type_traits>
 
-class Barrett {
+namespace internal {
+
+class Montgomery {
  public:
-  constexpr explicit Barrett(uint32_t mod)
-      : mod_inverse(static_cast<uint64_t>(-1) / mod + 1), mod(mod) {}
-
-  [[nodiscard]] uint32_t Product(uint32_t lhs, uint32_t rhs) const {
-    return (*this)(static_cast<uint64_t>(lhs) * rhs);
+  constexpr explicit Montgomery(uint32_t mod)
+      : mod_(mod),
+        r_square_((static_cast<uint64_t>(1) << 32) % mod),
+        mod_inverse_(1) {
+    r_square_ = static_cast<uint64_t>(r_square_) * r_square_ % mod;
+    for (int i = 0; i < 5; ++i) {
+      mod_inverse_ *= static_cast<uint32_t>(2) - mod * mod_inverse_;
+    }
   }
 
-  [[nodiscard]] uint32_t operator()(uint64_t n) const {
-    auto x = static_cast<uint64_t>(
-        (static_cast<__uint128_t>(n) * mod_inverse) >> 64);
-    uint64_t m = x * mod;
-    return n - m + (n < m ? mod : 0);
+  [[nodiscard]] constexpr uint32_t Product(uint32_t lhs, uint32_t rhs) const {
+    return Reduce(static_cast<uint64_t>(lhs) * rhs);
+  }
+
+  // returns a value congruent to mod in range [0, 2 * mod)
+  [[nodiscard]] constexpr uint32_t Reduce(uint64_t n) const {
+    uint32_t q = static_cast<uint32_t>(n) * mod_inverse_;
+    uint32_t m = (static_cast<uint64_t>(q) * mod_) >> 32;
+    return (n >> 32) + mod_ - m;
+  }
+
+  [[nodiscard]] constexpr uint32_t Transform(uint32_t n) const {
+    return Product(n, r_square_);
   }
 
  private:
-  uint64_t mod_inverse;
-  uint32_t mod;
+  uint32_t mod_;
+  uint32_t r_square_;
+  uint32_t mod_inverse_;
 };
 
-// Static modint class (for 32-bit compile-time modulos)
-// Uses barrett reduction for multiplication. Quite fast in practice.
-// Usage:
-// using mint = StaticModint<998244353>; // whatever (1000000007, ...)
-template <uint32_t kMod>
-class StaticModint {
- public:
-  static_assert(kMod < (1U << 30));
+struct ModIntBase {};
 
-  StaticModint() : value_(0) {}
+template <typename T>
+using is_modint = std::is_base_of<ModIntBase, T>;
+
+template <typename T>
+using is_modint_t = typename std::is_base_of<ModIntBase, T>::type;
+
+}  // namespace internal
+
+template <int kMod>
+class LazyMontgomeryModInt : public internal::ModIntBase {
+  static_assert(kMod > 0, "Mod must be positive");
+  static_assert(kMod % 2 == 1, "Mod must be odd");
+  static_assert(kMod < (1 << 30), "Mod must be less than 2^30");
+
+ public:
+  using Mint = LazyMontgomeryModInt<kMod>;
+
+  constexpr LazyMontgomeryModInt() : value_(0) {}
 
   template <typename T,
-            typename std::enable_if_t<
-                std::is_integral_v<T> && std::is_signed_v<T>, void>* = nullptr>
-  StaticModint(T value)
-      : value_(  // NOLINT(*-explicit-constructor)
-            value % kMod) {
-    if (value < 0) {
-      value += kMod;
+            typename std::enable_if_t<std::is_signed_v<T>>* = nullptr>
+  constexpr LazyMontgomeryModInt(T n)  // NOLINT(*explicit-constructor*)
+      : value_(0) {
+    if (n %= kMod; n < 0) {
+      n += kMod;
     }
+    value_ = space_.Transform(static_cast<uint32_t>(n));
   }
 
-  template <typename T, typename std::enable_if_t<std::is_integral_v<T> &&
-                                                      std::is_unsigned_v<T>,
-                                                  void>* = nullptr>
-  StaticModint(T value)
-      : value_(  // NOLINT(*-explicit-constructor)
-            value % kMod) {}
+  template <typename T,
+            typename std::enable_if_t<std::is_unsigned_v<T>>* = nullptr>
+  constexpr LazyMontgomeryModInt(T n)  // NOLINT(*explicit-constructor*)
+      : value_(space_.Transform(static_cast<uint32_t>(n % kMod))) {}
 
-  using Mint = StaticModint<kMod>;
+  static constexpr int Mod() { return kMod; }
 
-  static Mint Raw(unsigned value) {
+  static constexpr Mint Raw(uint32_t value) {
     Mint result;
-    result.value_ = value;
+    result.value_ = space_.Transform(value);
     return result;
   }
 
-  [[nodiscard]] Mint operator+() const noexcept { return Mint(*this); }
+  [[nodiscard]] constexpr Mint operator+() const noexcept { return *this; }
 
-  [[nodiscard]] Mint operator-() const noexcept { return Mint(kMod - value_); }
-
-  [[nodiscard]] bool IsZero() const noexcept { return value_ == 0; }
-
-  [[nodiscard]] explicit operator uint32_t() const { return value_; }
-
-  [[nodiscard]] Mint Inverse() const noexcept {
-    Mint m(*this);
-    Mint result = Raw(1U);
-#pragma GCC unroll(30)
-    for (unsigned i = 0; i < 30; ++i) {
-      if (((kMod - 2) >> i) % 2 == 1) {
-        result *= m;
-      }
-      m *= m;
-    }
-    return result;
+  [[nodiscard]] constexpr Mint operator-() const noexcept {
+    return Mint() - *this;
   }
 
-  Mint& operator+=(const Mint& other) {
-    if (value_ += other.value_; value_ >= kMod) {
-      value_ -= kMod;
+  template <typename T,
+            typename std::enable_if_t<std::is_integral_v<T>>* = nullptr>
+  [[nodiscard]] constexpr explicit operator T() const {
+    uint32_t q = space_.Reduce(value_);
+    return static_cast<T>(q < kUMod_ ? q : q - kUMod_);
+  }
+
+  [[nodiscard]] constexpr Mint Inverse() const noexcept {
+    return Power(*this, kUMod_ - 2);
+  }
+
+  constexpr Mint& operator+=(const Mint& other) noexcept {
+    if (static_cast<int>(value_ += other.value_ - kDoubleUMod_) < 0) {
+      value_ += kDoubleUMod_;
     }
     return *this;
   }
 
-  Mint& operator-=(const Mint& other) {
-    if (value_ += kMod - other.value_; value_ >= kMod) {
-      value_ -= kMod;
+  constexpr Mint& operator-=(const Mint& other) noexcept {
+    if (static_cast<int>(value_ -= other.value_) < 0) {
+      value_ += kDoubleUMod_;
     }
     return *this;
   }
 
-  Mint& operator*=(const Mint& other) {
-    value_ = barrett.Product(value_, other.value_);
+  constexpr Mint& operator*=(const Mint& other) noexcept {
+    value_ = space_.Product(value_, other.value_);
     return *this;
   }
 
-  Mint& operator/=(const Mint& other) {
-    value_ = barrett.Product(value_, other.Inverse().value_);
+  constexpr Mint& operator/=(const Mint& other) noexcept {
+    value_ = space_.Product(value_, other.Inverse().value_);
     return *this;
   }
 
-  friend Mint operator+(const Mint& lhs, const Mint& rhs) {
+  constexpr friend Mint operator+(const Mint& lhs, const Mint& rhs) {
     return Mint(lhs) += rhs;
   }
 
-  friend Mint operator-(const Mint& lhs, const Mint& rhs) {
+  constexpr friend Mint operator-(const Mint& lhs, const Mint& rhs) {
     return Mint(lhs) -= rhs;
   }
 
-  friend Mint operator*(const Mint& lhs, const Mint& rhs) {
+  constexpr friend Mint operator*(const Mint& lhs, const Mint& rhs) {
     return Mint(lhs) *= rhs;
   }
 
-  friend Mint operator/(const Mint& lhs, const Mint& rhs) {
+  constexpr friend Mint operator/(const Mint& lhs, const Mint& rhs) {
     return Mint(lhs) /= rhs;
   }
 
-  friend Mint Power(Mint m, uint64_t n) {
+  constexpr friend bool operator==(const Mint& lhs, const Mint& rhs) {
+    return (lhs.value_ < kUMod_ ? lhs.value_ : lhs.value_ - kUMod_) ==
+           (rhs.value_ < kUMod_ ? rhs.value_ : rhs.value_ - kUMod_);
+  }
+
+  constexpr friend bool operator!=(const Mint& lhs, const Mint& rhs) {
+    return (lhs.value_ < kUMod_ ? lhs.value_ : lhs.value_ - kUMod_) !=
+           (rhs.value_ < kUMod_ ? rhs.value_ : rhs.value_ - kUMod_);
+  }
+
+  constexpr friend Mint Power(Mint mint, uint64_t n) noexcept {
     Mint result = Raw(1U);
     while (n > 0) {
       if (n % 2 == 1) {
-        result *= m;
+        result *= mint;
       }
-      m *= m;
+      mint *= mint;
       n /= 2;
     }
     return result;
   }
 
-  friend bool operator==(const Mint& lhs, const Mint& rhs) {
-    return lhs.value_ == rhs.value_;
-  }
-
-  friend std::istream& operator>>(std::istream& is, Mint& mint) {
+  friend std::istream& operator>>(std::istream& istream, Mint& mint) {
     uint32_t value;
-    is >> value;
-    mint = Mint(value);
-    return is;
+    istream >> value;
+    mint = Mint::Raw(value);
+    return istream;
   }
 
-  friend std::ostream& operator<<(std::ostream& os, const Mint& mint) {
-    return os << mint.value_;
+  friend std::ostream& operator<<(std::ostream& ostream, const Mint& mint) {
+    return ostream << static_cast<int>(mint);
   }
 
  private:
-  static constexpr Barrett barrett = Barrett(kMod);
+  static constexpr uint32_t kUMod_ = kMod;
+  static constexpr uint32_t kDoubleUMod_ = kUMod_ << 1;
+  static constexpr internal::Montgomery space_ = internal::Montgomery(kUMod_);
+
   uint32_t value_;
 };
