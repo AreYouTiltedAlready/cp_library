@@ -1,4 +1,12 @@
-#include <bits/stdc++.h>
+// https://judge.yosupo.jp/problem/staticrmq
+// https://judge.yosupo.jp/submission/180871
+
+#include <algorithm>
+#include <bit>
+#include <cstdint>
+#include <iostream>
+#include <numeric>
+#include <vector>
 
 namespace {
 
@@ -22,12 +30,12 @@ decltype(auto) y_combinator(Fun&& fun) {
   return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
 }
 
-namespace bit {
+// Range M(ax)|(in)imum Query problem solver
+// Time: $O(n)$ / $O(1)$
+// GetIndex(first, last) always yields the FIRST occurrence of min/max in range
+namespace rmq {
 
-uint32_t countr_zero(uint32_t n) { return __builtin_ctz(n); }
-uint32_t countl_zero(uint32_t n) { return __builtin_clz(n); }
-
-}  // namespace bit
+namespace internal {
 
 enum class RMQMode {
   kMax,
@@ -38,10 +46,12 @@ template <typename T, RMQMode mode>
 class RMQSolver {
  public:
   static constexpr uint32_t kBlockLength = 32;
+  RMQSolver()
+      : values_(0), small_blocks_(), blocks_table_(), n_(0), blocks_count_(0) {}
 
-  template <typename U, typename std::enable_if_t<
-                            std::is_same_v<std::decay_t<U>, std::vector<T>>,
-                            void>* = nullptr>
+  template <typename U,
+            std::enable_if_t<std::is_same_v<std::decay_t<U>, std::vector<T>>,
+                             void>* = nullptr>
   explicit RMQSolver(U&& values)
       : values_(std::forward<U>(values)),
         small_blocks_(static_cast<int>(values_.size())),
@@ -70,7 +80,7 @@ class RMQSolver {
     // Building the sparse table for blocks of size n / kBlockLength
     {
       const int blocks_log =
-          32 - static_cast<int>(bit::countl_zero(blocks_count_));
+          std::bit_width(static_cast<uint32_t>(blocks_count_));
       blocks_table_.resize(blocks_log);
       for (int i = 0; i < blocks_log; ++i) {
         blocks_table_[i].resize(blocks_count_ - (1 << i) + 1);
@@ -121,12 +131,12 @@ class RMQSolver {
 
  private:
   [[nodiscard]] inline int GetSmallBlock(int right, int length) const {
-    return right -
-           (31 - bit::countl_zero(small_blocks_[right] & ((1U << length) - 1)));
+    return right + 1 -
+           std::bit_width(small_blocks_[right] & ((1U << length) - 1));
   }
 
   [[nodiscard]] inline int GetOnBlocks(int first, int last) const {
-    uint32_t level = 31U - bit::countl_zero(last - first);
+    int level = std::bit_width(static_cast<uint32_t>(last - first)) - 1;
     return Merger(blocks_table_[level][first],
                   blocks_table_[level][last - (1 << level)]);
   }
@@ -146,8 +156,16 @@ class RMQSolver {
   int blocks_count_;
 };
 
-// https://judge.yosupo.jp/problem/staticrmq
-// https://judge.yosupo.jp/submission/180552
+}  // namespace internal
+
+template <typename T>
+using RMQMaxSolver = internal::RMQSolver<T, internal::RMQMode::kMax>;
+
+template <typename T>
+using RMQMinSolver = internal::RMQSolver<T, internal::RMQMode::kMin>;
+
+}  // namespace rmq
+
 void RunCase([[maybe_unused]] int testcase) {
   int n;
   int q;
@@ -158,7 +176,7 @@ void RunCase([[maybe_unused]] int testcase) {
     std::cin >> it;
   }
 
-  RMQSolver<int, RMQMode::kMin> rmq_solver(std::move(values));
+  rmq::RMQMinSolver<int> rmq_solver(std::move(values));
   while (q--) {
     int first;
     int last;
@@ -174,7 +192,6 @@ void Main() {
     RunCase(tt);
   }
 }
-
 }  // namespace
 
 int main() {

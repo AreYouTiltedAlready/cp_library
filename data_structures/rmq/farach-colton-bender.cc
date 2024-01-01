@@ -10,13 +10,6 @@ namespace rmq {
 
 namespace internal {
 
-namespace bit {
-
-uint32_t countr_zero(uint32_t n) { return __builtin_ctz(n); }
-uint32_t countl_zero(uint32_t n) { return __builtin_clz(n); }
-
-}  // namespace bit
-
 enum class RMQMode {
   kMax,
   kMin,
@@ -26,10 +19,12 @@ template <typename T, RMQMode mode>
 class RMQSolver {
  public:
   static constexpr uint32_t kBlockLength = 32;
+  RMQSolver()
+      : values_(0), small_blocks_(), blocks_table_(), n_(0), blocks_count_(0) {}
 
-  template <typename U, typename std::enable_if_t<
-                            std::is_same_v<std::decay_t<U>, std::vector<T>>,
-                            void>* = nullptr>
+  template <typename U,
+            std::enable_if_t<std::is_same_v<std::decay_t<U>, std::vector<T>>,
+                             void>* = nullptr>
   explicit RMQSolver(U&& values)
       : values_(std::forward<U>(values)),
         small_blocks_(static_cast<int>(values_.size())),
@@ -58,7 +53,7 @@ class RMQSolver {
     // Building the sparse table for blocks of size n / kBlockLength
     {
       const int blocks_log =
-          32 - static_cast<int>(bit::countl_zero(blocks_count_));
+          std::bit_width(static_cast<uint32_t>(blocks_count_));
       blocks_table_.resize(blocks_log);
       for (int i = 0; i < blocks_log; ++i) {
         blocks_table_[i].resize(blocks_count_ - (1 << i) + 1);
@@ -109,12 +104,12 @@ class RMQSolver {
 
  private:
   [[nodiscard]] inline int GetSmallBlock(int right, int length) const {
-    return right -
-           (31 - bit::countl_zero(small_blocks_[right] & ((1U << length) - 1)));
+    return right + 1 -
+           std::bit_width(small_blocks_[right] & ((1U << length) - 1));
   }
 
   [[nodiscard]] inline int GetOnBlocks(int first, int last) const {
-    uint32_t level = 31U - bit::countl_zero(last - first);
+    int level = std::bit_width(static_cast<uint32_t>(last - first)) - 1;
     return Merger(blocks_table_[level][first],
                   blocks_table_[level][last - (1 << level)]);
   }

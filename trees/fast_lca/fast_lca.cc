@@ -4,13 +4,6 @@ namespace rmq {
 
 namespace internal {
 
-namespace bit {
-
-uint32_t countr_zero(uint32_t n) { return __builtin_ctz(n); }
-uint32_t countl_zero(uint32_t n) { return __builtin_clz(n); }
-
-}  // namespace bit
-
 enum class RMQMode {
   kMax,
   kMin,
@@ -22,11 +15,11 @@ class RMQSolver {
   static constexpr uint32_t kBlockLength = 32;
 
   RMQSolver()
-      : values_(), small_blocks_(), blocks_table_(), n_(0), blocks_count_() {}
+      : values_(0), small_blocks_(), blocks_table_(), n_(0), blocks_count_(0) {}
 
-  template <typename U, typename std::enable_if_t<
-                            std::is_same_v<std::decay_t<U>, std::vector<T>>,
-                            void>* = nullptr>
+  template <typename U,
+            std::enable_if_t<std::is_same_v<std::decay_t<U>, std::vector<T>>,
+                             void>* = nullptr>
   explicit RMQSolver(U&& values)
       : values_(std::forward<U>(values)),
         small_blocks_(static_cast<int>(values_.size())),
@@ -55,7 +48,7 @@ class RMQSolver {
     // Building the sparse table for blocks of size n / kBlockLength
     {
       const int blocks_log =
-          32 - static_cast<int>(bit::countl_zero(blocks_count_));
+          std::bit_width(static_cast<uint32_t>(blocks_count_));
       blocks_table_.resize(blocks_log);
       for (int i = 0; i < blocks_log; ++i) {
         blocks_table_[i].resize(blocks_count_ - (1 << i) + 1);
@@ -106,12 +99,12 @@ class RMQSolver {
 
  private:
   [[nodiscard]] inline int GetSmallBlock(int right, int length) const {
-    return right -
-           (31 - bit::countl_zero(small_blocks_[right] & ((1U << length) - 1)));
+    return right + 1 -
+           std::bit_width(small_blocks_[right] & ((1U << length) - 1));
   }
 
   [[nodiscard]] inline int GetOnBlocks(int first, int last) const {
-    uint32_t level = 31U - bit::countl_zero(last - first);
+    int level = std::bit_width(static_cast<uint32_t>(last - first)) - 1;
     return Merger(blocks_table_[level][first],
                   blocks_table_[level][last - (1 << level)]);
   }
@@ -141,6 +134,8 @@ using RMQMinSolver = internal::RMQSolver<T, internal::RMQMode::kMin>;
 
 }  // namespace rmq
 
+namespace lca {
+
 // Okay, this is just a generalization of basic hld (on top of hld, we maintain
 // euler tour for lca in $O(1))
 // Note: similar to hld, one must call Build() before queries
@@ -149,20 +144,20 @@ using RMQMinSolver = internal::RMQSolver<T, internal::RMQMode::kMin>;
 class LcaForest {
  public:
   explicit LcaForest(int n)
-      : n_(n),
-        tour_id_(0),
-        euler_id_(0),
-        in_(n),
+      : in_(n),
         out_(n),
+        euler_(n * 2),
+        entry_(n),
+        head_(n),
         tour_(n),
         size_(n),
-        head_(n),
         depth_(n),
-        entry_(n),
         parent_(n),
-        euler_(n * 2),
         g_(n),
-        rmq_solver_() {}
+        rmq_solver_(),
+        n_(n),
+        tour_id_(0),
+        euler_id_(0) {}
 
   explicit LcaForest(const std::vector<std::vector<int>>& g)
       : LcaForest(static_cast<int>(g.size())) {
@@ -188,8 +183,7 @@ class LcaForest {
         }
     }
     for (int i = 0; i < n_; ++i) {
-      g_[i].erase(std::remove(g_[i].begin(), g_[i].end(), parent_[i]),
-                  g_[i].end());
+      std::erase(g_[i], parent_[i]);
       if (g_[i].empty()) {
         continue;
       }
@@ -299,9 +293,6 @@ class LcaForest {
     out_[v] = tour_id_;
   }
 
-  int n_;
-  int tour_id_;
-  int euler_id_;
   std::vector<int> in_;
   std::vector<int> out_;
   std::vector<int> euler_;
@@ -313,4 +304,10 @@ class LcaForest {
   std::vector<int> parent_;
   std::vector<std::vector<int>> g_;
   rmq::RMQMinSolver<int> rmq_solver_;
+
+  int n_;
+  int tour_id_;
+  int euler_id_;
 };
+
+}  // namespace lca

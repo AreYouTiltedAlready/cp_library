@@ -121,7 +121,7 @@ class MontgomerySpace {
 
 class Factorizer {
  public:
-  explicit Factorizer(int n) : n_(n), spf_(n + 1) {
+  explicit Factorizer(int n) : spf_(n + 1), primes_(), n_(n) {
     primes_.reserve(2 * n / std::__lg(n + 1));
     std::iota(spf_.begin(), spf_.end(), 0);
 
@@ -295,9 +295,10 @@ class Factorizer {
     return true;
   }
 
-  int n_;
   std::vector<int> spf_;
   std::vector<int> primes_;
+
+  int n_;
 };
 
 }  // namespace math

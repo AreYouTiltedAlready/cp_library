@@ -1,5 +1,7 @@
 #include <array>
+#include <bit>
 #include <complex>
+#include <cstdint>
 #include <vector>
 
 // Basic fft implementation
@@ -18,7 +20,7 @@ class FastFourierTransform {
     }
     root_[0] = root_[1] = 1;
     for (int i = 1; i < kLog; ++i) {
-      const T angle = kPi / (1 << i);
+      const T angle = std::numbers::pi_v<T> / (1 << i);
       const Complex z(cosl(angle), sinl(angle));
       for (int j = 1 << (i - 1); j < 1 << i; ++j) {
         root_[j << 1] = root_[j];
@@ -34,10 +36,11 @@ class FastFourierTransform {
       const typename std::vector<int>::const_iterator& rhs_last, int mod) {
     const auto n = static_cast<int>(std::distance(lhs_first, lhs_last));
     const auto m = static_cast<int>(std::distance(rhs_first, rhs_last));
-    int dft_size = 1;
-    while (dft_size < std::max(n, m) * 2) {
-      dft_size *= 2;
+    if (std::min(n, m) == 0) {
+      return {};
     }
+    int dft_size =
+        static_cast<int>(std::bit_ceil(static_cast<uint32_t>(n + m - 1)));
     std::vector<Complex> dft_lhs(dft_size);
     for (int i = 0; i < n; ++i) {
       dft_lhs[i].real(lhs_first[i] % (1 << 15));
@@ -91,10 +94,11 @@ class FastFourierTransform {
       const typename std::vector<int>::const_iterator& rhs_last) {
     const auto n = static_cast<int>(std::distance(lhs_first, lhs_last));
     const auto m = static_cast<int>(std::distance(rhs_first, rhs_last));
-    int dft_size = 1;
-    while (dft_size < std::max(n, m) * 2) {
-      dft_size *= 2;
+    if (std::min(n, m) == 0) {
+      return {};
     }
+    int dft_size =
+        static_cast<int>(std::bit_ceil(static_cast<uint32_t>(n + m - 1)));
     std::vector<Complex> dft(dft_size);
     for (int i = 0; i < n; ++i) {
       dft[i].real(lhs_first[i]);
@@ -141,7 +145,6 @@ class FastFourierTransform {
   }
 
  private:
-  static const inline T kPi = acosl(-1.0);
   std::array<Complex, 1 << kLog> root_;
   std::array<int, 1 << kLog> inverse_;
 };
