@@ -1,15 +1,17 @@
-// https://judge.yosupo.jp/submission/180863
-// https://judge.yosupo.jp/problem/factorize
+// Problem: https://judge.yosupo.jp/problem/factorize
+// Submission: https://judge.yosupo.jp/submission/181699
 
 #include <array>
-#include <bit>
 #include <cassert>
 #include <chrono>
+#include <cstdint>
+#include <functional>
 #include <iostream>
-#include <limits>
 #include <map>
 #include <numeric>
 #include <random>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -34,9 +36,7 @@ decltype(auto) y_combinator(Fun&& fun) {
   return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
 }
 
-namespace math {
-
-namespace internal {
+namespace modular {
 namespace integral_type_traits {
 
 template <typename T>
@@ -70,86 +70,67 @@ template <typename T>
 using integral_promotion_t =
     typename integral_type_traits::integral_promotion<T>::type;
 
-namespace montgomery {
-
 template <typename T>
-class MontgomerySpace {
+concept unsigned_int_or_int64 =
+    std::is_same_v<T, uint32_t> || std::is_same_v<T, uint64_t>;
+
+namespace barrett {
+
+using uint128_t = __uint128_t;
+
+constexpr uint128_t MultiplyHigh(uint128_t lhs, uint128_t rhs) {
+  const auto a = static_cast<uint64_t>(lhs >> 64);
+  const auto b = static_cast<uint64_t>(lhs);
+  const auto c = static_cast<uint64_t>(rhs >> 64);
+  const auto d = static_cast<uint64_t>(rhs);
+  uint128_t ac = static_cast<uint128_t>(a) * c;
+  uint128_t ad = static_cast<uint128_t>(a) * d;
+  uint128_t bc = static_cast<uint128_t>(b) * c;
+  uint128_t bd = static_cast<uint128_t>(b) * d;
+  uint128_t carry = static_cast<uint128_t>(static_cast<uint64_t>(ad)) +
+                    static_cast<uint128_t>(static_cast<uint64_t>(bc)) +
+                    (bd >> 64);
+  return ac + (ad >> 64) + (bc >> 64) + (carry >> 64);
+}
+
+template <unsigned_int_or_int64 T>
+class Barrett {
  public:
-  using signed_t = std::make_signed_t<T>;
-  using unsigned_t = std::make_unsigned_t<T>;
-  using promoted_t = integral_promotion_t<unsigned_t>;
-  static constexpr int kTBitWidth = std::numeric_limits<unsigned_t>::digits;
+  using promoted_t = integral_promotion_t<T>;
 
-  constexpr explicit MontgomerySpace(T mod)
-      : mod_(mod),
-        r_square_((static_cast<promoted_t>(1) << kTBitWidth) % mod),
-        mod_inverse_(1) {
-    r_square_ = static_cast<promoted_t>(r_square_) * r_square_ % mod;
-    for (int i = 0; i < 6; ++i) {
-      mod_inverse_ *= static_cast<unsigned_t>(2) - mod_ * mod_inverse_;
-    }
-  }
+  constexpr explicit Barrett(T mod)
+      : mod_inverse_(static_cast<promoted_t>(-1) / mod + 1), mod_(mod) {}
 
-  [[nodiscard]] constexpr unsigned_t Sum(unsigned_t lhs, unsigned_t rhs) const {
-    if (static_cast<signed_t>(lhs += rhs - (mod_ << 1)) < 0) {
-      lhs += mod_ << 1;
-    }
-    return lhs;
-  }
-
-  [[nodiscard]] constexpr unsigned_t Difference(unsigned_t lhs,
-                                                unsigned_t rhs) const {
-    if (static_cast<signed_t>(lhs -= rhs) < 0) {
-      lhs += mod_ << 1;
-    }
-    return lhs;
-  }
-
-  [[nodiscard]] constexpr unsigned_t Product(unsigned_t lhs,
-                                             unsigned_t rhs) const {
+  [[nodiscard]] constexpr T Product(T lhs, T rhs) const {
     return Reduce(static_cast<promoted_t>(lhs) * rhs);
   }
 
-  [[nodiscard]] constexpr bool AreEqual(unsigned_t lhs, unsigned_t rhs) const {
-    return (lhs < mod_ ? lhs : lhs - mod_) == (rhs < mod_ ? rhs : rhs - mod_);
-  }
-
-  [[nodiscard]] constexpr unsigned_t Power(unsigned_t x, uint64_t n) const {
-    unsigned_t result = Transform(1U);
-    while (n > 0) {
-      if (n % 2 == 1) {
-        result = Product(result, x);
-      }
-      x = Product(x, x);
-      n /= 2;
+  [[nodiscard]] constexpr T Reduce(promoted_t n) const {
+    promoted_t m = mod_;
+    if constexpr (std::is_same_v<T, uint32_t>) {
+      m *= static_cast<promoted_t>((static_cast<uint128_t>(n) * mod_inverse_) >>
+                                   64);
+    } else {
+      m *= MultiplyHigh(n, mod_inverse_);
     }
-    return result;
-  }
-
-  // returns a value congruent to mod in range [0, 2 * mod)
-  [[nodiscard]] constexpr unsigned_t Reduce(promoted_t n) const {
-    unsigned_t q = static_cast<unsigned_t>(n) * mod_inverse_;
-    unsigned_t m = (static_cast<promoted_t>(q) * mod_) >> kTBitWidth;
-    return (n >> kTBitWidth) + mod_ - m;
-  }
-
-  [[nodiscard]] constexpr unsigned_t Transform(unsigned_t n) const {
-    return Product(n, r_square_);
+    n += (n < m ? mod_ : 0);
+    return n - m;
   }
 
  private:
-  unsigned_t mod_;
-  unsigned_t r_square_;
-  unsigned_t mod_inverse_;
+  promoted_t mod_inverse_;
+  T mod_;
 };
 
-}  // namespace montgomery
+}  // namespace barrett
 
-}  // namespace internal
+}  // namespace modular
+
+namespace math {
 
 class Factorizer {
  public:
-  explicit Factorizer(int n) : n_(n), spf_(n + 1) {
+  explicit Factorizer(int n) : spf_(n + 1), primes_(), n_(n) {
     primes_.reserve(2 * n / std::__lg(n + 1));
     std::iota(spf_.begin(), spf_.end(), 0);
 
@@ -205,23 +186,6 @@ class Factorizer {
   }
 
  private:
-  template <typename T>
-  static T Gcd(T a, T b) {
-    if (a == 0 || b == 0) {
-      return a + b;
-    }
-    int common = std::countr_zero(a | b);
-    b >>= std::countr_zero(b);
-    do {
-      a >>= std::countr_zero(a);
-      if (a < b) {
-        std::swap(a, b);
-      }
-      a -= b;
-    } while (a != 0);
-    return b << common;
-  }
-
   static inline std::mt19937_64 rng = std::mt19937_64(
       std::chrono::steady_clock::now().time_since_epoch().count());
 
@@ -234,38 +198,41 @@ class Factorizer {
     }
 
     using unsigned_t = std::make_unsigned_t<T>;
-    const internal::montgomery::MontgomerySpace<T> space(n);
+    const modular::barrett::Barrett<unsigned_t> barrett(n);
 
     unsigned_t increment{};
     auto g = [&](unsigned_t x) -> unsigned_t {
-      return space.Sum(space.Product(x, x), increment);
+      x = barrett.Product(x, x);
+      if ((x += increment) >= n) {
+        x -= n;
+      }
+      return x;
     };
 
     const auto jump = static_cast<int>((sqrtl(logl(n) * sqrtl(sqrtl(n)))));
     while (true) {
-      increment = space.Transform(rng() % n);
-      unsigned_t start = space.Transform(rng() % n);
+      increment = rng() % n;
+      unsigned_t start = rng() % n;
       unsigned_t x = start;
       unsigned_t y = start;
       unsigned_t result_gcd{};
       std::vector<unsigned_t> products(jump + 1);
       do {
-        products[0] = space.Transform(1U);
+        products[0] = 1;
         for (int i = 1; i <= jump; ++i) {
           x = g(x);
           y = g(g(y));
-          products[i] = space.Product(products[i - 1], x < y ? y - x : x - y);
+          products[i] = barrett.Product(products[i - 1], x < y ? y - x : x - y);
         }
-      } while ((result_gcd = Gcd(space.Reduce(products[jump]),
-                                 static_cast<unsigned_t>(n))) == 1);
+      } while ((result_gcd =
+                    std::gcd(products[jump], static_cast<unsigned_t>(n))) == 1);
       if (result_gcd == n) {
-        assert(space.AreEqual(products.back(), 0));
+        assert(products.back() == 0);
         int index = jump;
-        while (index > 0 && space.AreEqual(products[index], 0)) {
+        while (index > 0 && products[index] == 0) {
           index -= 1;
         }
-        result_gcd =
-            Gcd(space.Reduce(products[index]), static_cast<unsigned_t>(n));
+        result_gcd = std::gcd(products[index], static_cast<unsigned_t>(n));
       }
       if (result_gcd != n && result_gcd != 1) {
         return result_gcd;
@@ -290,30 +257,40 @@ class Factorizer {
       return true;
     }
 
-    // safe because n is odd
-    const internal::montgomery::MontgomerySpace<T> space(n);
+    using unsigned_t = std::make_unsigned_t<T>;
+    const modular::barrett::Barrett<unsigned_t> barrett(n);
     const int rank =
         std::countr_zero(static_cast<std::make_unsigned_t<T>>(n - 1));
     const T d = (n - 1) >> rank;
-    const T unit = space.Transform(1);
-    const T neg_unit = space.Transform(n - 1);
+
+    auto Power = [&barrett](unsigned_t x, unsigned_t n) -> unsigned_t {
+      unsigned_t res = 1;
+      while (n > 0) {
+        if (n % 2 == 1) {
+          res = barrett.Product(res, x);
+        }
+        x = barrett.Product(x, x);
+        n /= 2;
+      }
+      return res;
+    };
 
     for (T base : bases) {
       T base_mod = base % n;
       if (base_mod == 0) {
         continue;
       }
-      base_mod = space.Power(space.Transform(base_mod), d);
-      if (space.AreEqual(base_mod, unit)) {
+      base_mod = Power(base_mod, d);
+      if (base_mod == 1) {
         continue;
       }
       bool witness = true;
       for (int i = 0; i < rank; ++i) {
-        if (space.AreEqual(base_mod, neg_unit)) {
+        if (base_mod == n - 1) {
           witness = false;
           break;
         }
-        base_mod = space.Product(base_mod, base_mod);
+        base_mod = barrett.Product(base_mod, base_mod);
       }
       if (witness) {
         return false;
@@ -323,16 +300,17 @@ class Factorizer {
     return true;
   }
 
-  int n_;
   std::vector<int> spf_;
   std::vector<int> primes_;
+
+  int n_;
 };
 
 }  // namespace math
 
 void RunCase([[maybe_unused]] int testcase) {
   math::Factorizer factorizer(1e6);
-
+  
   int q;
   std::cin >> q;
   while (q--) {
@@ -357,11 +335,12 @@ void RunCase([[maybe_unused]] int testcase) {
 
 void Main() {
   int testcases = 1;
-  // std::cin >> testcases;
+  //std::cin >> testcases;
   for (int tt = 1; tt <= testcases; ++tt) {
     RunCase(tt);
   }
 }
+
 }  // namespace
 
 int main() {

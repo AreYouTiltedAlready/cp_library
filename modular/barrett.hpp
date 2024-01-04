@@ -1,65 +1,53 @@
-#include <cstdint>
-#include <limits>
+// #include "modular/type_traits.hpp"
 
-// Barrett modular reduction for 32- and 64-bit modulos
-// $mod$ might be runtime variable
-class Barrett {
-public:
-  constexpr explicit Barrett(uint32_t mod)
-      : mod_inverse(static_cast<uint64_t>(-1) / mod + 1), mod(mod) {}
-
-  [[nodiscard]] uint32_t Product(uint32_t lhs, uint32_t rhs) const {
-    return (*this)(static_cast<uint64_t>(lhs) * rhs);
-  }
-
-  [[nodiscard]] uint32_t operator()(uint64_t n) const {
-    auto x = static_cast<uint64_t>(
-        (static_cast<__uint128_t>(n) * mod_inverse) >> 64);
-    uint64_t m = x * mod;
-    return n - m + (n < m ? mod : 0);
-  }
-
-private:
-  uint64_t mod_inverse;
-  uint32_t mod;
-};
+namespace modular {
+namespace barrett {
 
 using uint128_t = __uint128_t;
 
-class Barrett128 {
-public:
-  constexpr explicit Barrett128(uint64_t mod)
-      : mod(mod), mod_inverse_high((static_cast<uint128_t>(-1) / mod + 1) >> 64)
-        , mod_inverse_low((static_cast<uint128_t>(-1) / mod + 1) -
-                          (static_cast<uint128_t>(mod_inverse_high) << 64)) {}
+constexpr uint128_t MultiplyHigh(uint128_t lhs, uint128_t rhs) {
+  const auto a = static_cast<uint64_t>(lhs >> 64);
+  const auto b = static_cast<uint64_t>(lhs);
+  const auto c = static_cast<uint64_t>(rhs >> 64);
+  const auto d = static_cast<uint64_t>(rhs);
+  uint128_t ac = static_cast<uint128_t>(a) * c;
+  uint128_t ad = static_cast<uint128_t>(a) * d;
+  uint128_t bc = static_cast<uint128_t>(b) * c;
+  uint128_t bd = static_cast<uint128_t>(b) * d;
+  uint128_t carry = static_cast<uint128_t>(static_cast<uint64_t>(ad)) +
+                    static_cast<uint128_t>(static_cast<uint64_t>(bc)) +
+                    (bd >> 64);
+  return ac + (ad >> 64) + (bc >> 64) + (carry >> 64);
+}
 
-  [[nodiscard]] uint64_t Product(uint64_t lhs, uint64_t rhs) const {
-    return (*this)(static_cast<uint128_t>(lhs) * rhs);
+template <unsigned_int_or_int64 T>
+class Barrett {
+ public:
+  using promoted_t = integral_promotion_t<T>;
+
+  constexpr explicit Barrett(T mod)
+      : mod_inverse_(static_cast<promoted_t>(-1) / mod + 1), mod_(mod) {}
+
+  [[nodiscard]] constexpr T Product(T lhs, T rhs) const {
+    return Reduce(static_cast<promoted_t>(lhs) * rhs);
   }
 
-  [[nodiscard]] uint64_t operator()(uint128_t n) const {
-    uint128_t x = Product(n & std::numeric_limits<uint64_t>::max(), n >> 64,
-                          mod_inverse_low, mod_inverse_high);
-    uint128_t m = x * mod;
-    return n - m + (n < m ? mod : 0);
+  [[nodiscard]] constexpr T Reduce(promoted_t n) const {
+    promoted_t m = mod_;
+    if constexpr (std::is_same_v<T, uint32_t>) {
+      m *= static_cast<promoted_t>((static_cast<uint128_t>(n) * mod_inverse_) >>
+                                   64);
+    } else {
+      m *= MultiplyHigh(n, mod_inverse_);
+    }
+    n += (n < m ? mod_ : 0);
+    return n - m;
   }
 
-private:
-  static uint128_t Product(uint64_t lhs_low, uint64_t lhs_high,
-                           uint64_t rhs_low, uint64_t rhs_high) {
-    // (a*2^64 + b) * (c*2^64 + d) =
-    // (a*c) * 2^128 + (a*d + b*c)*2^64 + (b*d)
-    uint128_t ac = static_cast<uint128_t>(lhs_high) * rhs_high;
-    uint128_t ad = static_cast<uint128_t>(lhs_high) * rhs_low;
-    uint128_t bc = static_cast<uint128_t>(lhs_low) * rhs_high;
-    uint128_t bd = static_cast<uint128_t>(lhs_low) * rhs_low;
-    uint128_t carry =
-        static_cast<uint128_t>(static_cast<uint64_t>(ad)) +
-        static_cast<uint128_t>(static_cast<uint64_t>(bc) + (bd >> 64));
-    return ac + (ad >> 64) + (bc >> 64) + (carry >> 64);
-  }
-
-  uint64_t mod;
-  uint64_t mod_inverse_high;
-  uint64_t mod_inverse_low;
+ private:
+  promoted_t mod_inverse_;
+  T mod_;
 };
+
+}  // namespace barrett
+}  // namespace modular

@@ -1,10 +1,274 @@
-// #include "modular/modint/static_modint.hpp"
+// Problem: https://judge.yosupo.jp/problem/convolution_mod_1000000007
+// Submission: https://judge.yosupo.jp/submission/181685
 
-#include <algorithm>
 #include <array>
-#include <bit>
 #include <cassert>
 #include <cstdint>
+#include <functional>
+#include <iostream>
+#include <utility>
+#include <vector>
+
+namespace {
+
+template <class Fun>
+class y_combinator_result {
+  Fun fun_;
+
+ public:
+  template <class T>
+  explicit y_combinator_result(T&& fun)  // NOLINT(*forwarding-reference*)
+      : fun_(std::forward<T>(fun)) {}
+
+  template <class... Args>
+  decltype(auto) operator()(Args&&... args) {
+    return fun_(std::ref(*this), std::forward<Args>(args)...);
+  }
+};
+
+template <class Fun>
+decltype(auto) y_combinator(Fun&& fun) {
+  return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
+}
+
+namespace modular {
+namespace integral_type_traits {
+
+template <typename T>
+struct integral_promotion {
+  using type = T;
+};
+
+template <>
+struct integral_promotion<int> {
+  using type = int64_t;
+};
+
+template <>
+struct integral_promotion<uint32_t> {
+  using type = uint64_t;
+};
+
+template <>
+struct integral_promotion<int64_t> {
+  using type = __int128_t;
+};
+
+template <>
+struct integral_promotion<uint64_t> {
+  using type = __uint128_t;
+};
+
+}  // namespace integral_type_traits
+
+template <typename T>
+using integral_promotion_t =
+    typename integral_type_traits::integral_promotion<T>::type;
+
+template <typename T>
+concept unsigned_int_or_int64 =
+    std::is_same_v<T, uint32_t> || std::is_same_v<T, uint64_t>;
+
+namespace barrett {
+
+using uint128_t = __uint128_t;
+
+constexpr uint128_t MultiplyHigh(uint128_t lhs, uint128_t rhs) {
+  const auto a = static_cast<uint64_t>(lhs >> 64);
+  const auto b = static_cast<uint64_t>(lhs);
+  const auto c = static_cast<uint64_t>(rhs >> 64);
+  const auto d = static_cast<uint64_t>(rhs);
+  uint128_t ac = static_cast<uint128_t>(a) * c;
+  uint128_t ad = static_cast<uint128_t>(a) * d;
+  uint128_t bc = static_cast<uint128_t>(b) * c;
+  uint128_t bd = static_cast<uint128_t>(b) * d;
+  uint128_t carry = static_cast<uint128_t>(static_cast<uint64_t>(ad)) +
+                    static_cast<uint128_t>(static_cast<uint64_t>(bc)) +
+                    (bd >> 64);
+  return ac + (ad >> 64) + (bc >> 64) + (carry >> 64);
+}
+
+template <unsigned_int_or_int64 T>
+class Barrett {
+ public:
+  using promoted_t = integral_promotion_t<T>;
+
+  constexpr explicit Barrett(T mod)
+      : mod_inverse_(static_cast<promoted_t>(-1) / mod + 1), mod_(mod) {}
+
+  [[nodiscard]] constexpr T Product(T lhs, T rhs) const {
+    return Reduce(static_cast<promoted_t>(lhs) * rhs);
+  }
+
+  [[nodiscard]] constexpr T Reduce(promoted_t n) const {
+    promoted_t m = mod_;
+    if constexpr (std::is_same_v<T, uint32_t>) {
+      m *= static_cast<promoted_t>((static_cast<uint128_t>(n) * mod_inverse_) >>
+                                   64);
+    } else {
+      m *= MultiplyHigh(n, mod_inverse_);
+    }
+    n += (n < m ? mod_ : 0);
+    return n - m;
+  }
+
+ private:
+  promoted_t mod_inverse_;
+  T mod_;
+};
+
+}  // namespace barrett
+
+namespace modint {
+namespace internal {
+
+struct ModIntBase {};
+
+}  // namespace internal
+
+template <typename T>
+concept modint = std::is_base_of_v<internal::ModIntBase, T>;
+
+namespace static_modint {
+
+template <typename T, T kMod>
+class StaticModInt : public internal::ModIntBase {
+ public:
+  using signed_t = std::make_signed_t<T>;
+  using unsigned_t = std::make_unsigned_t<T>;
+  using Mint = StaticModInt<T, kMod>;
+
+  constexpr StaticModInt() : value_(0) {}
+
+  template <typename U>
+  requires(!unsigned_int_or_int64<U>) constexpr StaticModInt(
+      U n)  // NOLINT(*explicit-constructor*)
+      : value_(0) {
+    if (n %= kMod; n < 0) {
+      n += kMod;
+    }
+    value_ = static_cast<unsigned_t>(n);
+  }
+
+  template <unsigned_int_or_int64 U>
+  constexpr StaticModInt(U n)  // NOLINT(*explicit-constructor*)
+      : value_(static_cast<unsigned_t>(n % kMod)) {}
+
+  static constexpr unsigned_t UMod() { return kUnsignedMod; }
+
+  static constexpr Mint Raw(unsigned_t value) {
+    Mint result;
+    result.value_ = value;
+    return result;
+  }
+
+  [[nodiscard]] constexpr Mint operator+() const noexcept { return *this; }
+
+  [[nodiscard]] constexpr Mint operator-() const noexcept {
+    return Mint() - *this;
+  }
+
+  [[nodiscard]] constexpr unsigned_t Get() const { return value_; }
+
+  template <std::integral U>
+  [[nodiscard]] constexpr explicit operator U() const {
+    return static_cast<U>(value_);
+  }
+
+  [[nodiscard]] constexpr Mint Inverse() const noexcept {
+    return Power(*this, kUnsignedMod - 2);
+  }
+
+  constexpr Mint& operator+=(const Mint& other) noexcept {
+    if ((value_ += other.value_) >= kUnsignedMod) {
+      value_ -= kUnsignedMod;
+    }
+    return *this;
+  }
+
+  constexpr Mint& operator-=(const Mint& other) noexcept {
+    if ((value_ += kMod - other.value_) >= kUnsignedMod) {
+      value_ -= kUnsignedMod;
+    }
+    return *this;
+  }
+
+  constexpr Mint& operator*=(const Mint& other) noexcept {
+    value_ = kBarrett.Product(value_, other.value_);
+    return *this;
+  }
+
+  constexpr Mint& operator/=(const Mint& other) noexcept {
+    value_ = kBarrett.Product(value_, other.Inverse().value_);
+    return *this;
+  }
+
+  constexpr friend Mint operator+(const Mint& lhs, const Mint& rhs) {
+    return Mint(lhs) += rhs;
+  }
+
+  constexpr friend Mint operator-(const Mint& lhs, const Mint& rhs) {
+    return Mint(lhs) -= rhs;
+  }
+
+  constexpr friend Mint operator*(const Mint& lhs, const Mint& rhs) {
+    return Mint(lhs) *= rhs;
+  }
+
+  constexpr friend Mint operator/(const Mint& lhs, const Mint& rhs) {
+    return Mint(lhs) /= rhs;
+  }
+
+  constexpr friend bool operator==(const Mint& lhs, const Mint& rhs) {
+    return lhs.value_ == rhs.value_;
+  }
+
+  constexpr friend bool operator!=(const Mint& lhs, const Mint& rhs) {
+    return lhs.value_ != rhs.value_;
+  }
+
+  constexpr friend Mint Power(Mint mint, uint64_t n) noexcept {
+    Mint res = Raw(1U);
+    while (n > 0) {
+      if (n % 2 == 1) {
+        res *= mint;
+      }
+      mint *= mint;
+      n /= 2;
+    }
+    return res;
+  }
+
+  friend std::istream& operator>>(std::istream& istream, Mint& mint) {
+    unsigned_t value;
+    istream >> value;
+    mint = Mint::Raw(value);
+    return istream;
+  }
+
+  friend std::ostream& operator<<(std::ostream& ostream, const Mint& mint) {
+    return ostream << static_cast<signed_t>(mint);
+  }
+
+ private:
+  static constexpr unsigned_t kUnsignedMod = kMod;
+  static constexpr barrett::Barrett<unsigned_t> kBarrett =
+      barrett::Barrett<unsigned_t>(kUnsignedMod);
+
+  unsigned_t value_;
+};
+
+}  // namespace static_modint
+
+template <int kMod>
+using StaticMInt = static_modint::StaticModInt<int, kMod>;
+
+template <int64_t kMod>
+using StaticMLong = static_modint::StaticModInt<int64_t, kMod>;
+
+}  // namespace modint
+
+}  // namespace modular
 
 namespace ntt {
 namespace internal {
@@ -441,3 +705,41 @@ std::vector<int> ConvolutionArbitraryMod(const std::vector<T>& lhs,
 }
 
 }  // namespace ntt
+
+void RunCase([[maybe_unused]] int testcase) {
+  int n;
+  int m;
+  std::cin >> n >> m;
+
+  std::vector<int> p(n);
+  for (int& it : p) {
+    std::cin >> it;
+  }
+
+  std::vector<int> q(m);
+  for (int& it : q) {
+    std::cin >> it;
+  }
+
+  const std::vector<int> r = ntt::ConvolutionArbitraryMod(p, q, 1000000007);
+  for (int it : r) {
+    std::cout << it << " ";
+  }
+}
+
+void Main() {
+  int testcases = 1;
+  // std::cin >> testcases;
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
+}
+
+}  // namespace
+
+int main() {
+  std::ios_base::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+  Main();
+  return 0;
+}
