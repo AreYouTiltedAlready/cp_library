@@ -2,6 +2,8 @@
 #include <limits>
 #include <type_traits>
 
+namespace modular {
+
 namespace integral_type_traits {
 
 template <typename T>
@@ -109,3 +111,5 @@ class MontgomerySpace {
 };
 
 }  // namespace montgomery
+
+}  // namespace modular

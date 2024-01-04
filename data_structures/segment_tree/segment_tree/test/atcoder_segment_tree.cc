@@ -1,9 +1,32 @@
+// Problem: https://atcoder.jp/contests/practice2/tasks/practice2_j
+// Submission: https://atcoder.jp/contests/practice2/submissions/49020604
 #include <algorithm>
-#include <bit>
-#include <cstdint>
 #include <functional>
-#include <ranges>
-#include <vector>
+#include <iostream>
+#include <numeric>
+#include <random>
+
+namespace {
+
+template <class Fun>
+class y_combinator_result {
+  Fun fun_;
+
+ public:
+  template <class T>
+  explicit y_combinator_result(T&& fun)  // NOLINT(*forwarding-reference*)
+      : fun_(std::forward<T>(fun)) {}
+
+  template <class... Args>
+  decltype(auto) operator()(Args&&... args) {
+    return fun_(std::ref(*this), std::forward<Args>(args)...);
+  }
+};
+
+template <class Fun>
+decltype(auto) y_combinator(Fun&& fun) {
+  return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
+}
 
 namespace ds {
 namespace segment_tree {
@@ -193,3 +216,69 @@ class SegmentTree {
 }  // namespace segment_tree
 
 }  // namespace ds
+
+struct MaxS {
+  MaxS() : value(std::numeric_limits<int>::min()) {}
+  MaxS(int value) : value(value) {}
+
+  friend MaxS operator+(const MaxS& lhs, const MaxS& rhs) {
+    return lhs.value < rhs.value ? rhs : lhs;
+  }
+
+  int value;
+};
+
+void RunCase([[maybe_unused]] int testcase) {
+  int n;
+  int q;
+  std::cin >> n >> q;
+
+  std::vector<int> v(n);
+  for (int& it : v) {
+    std::cin >> it;
+  }
+
+  ds::segment_tree::SegmentTree<MaxS> segment_tree(v);
+  while (q--) {
+    int t;
+    std::cin >> t;
+    if (t == 1) {
+      int pos;
+      int value;
+      std::cin >> pos >> value;
+      segment_tree.Set(pos - 1, value);
+    } else if (t == 2) {
+      int first;
+      int last;
+      std::cin >> first >> last;
+      std::cout << segment_tree.Get(first - 1, last).value << "\n";
+    } else {
+      int first;
+      int value;
+      std::cin >> first >> value;
+      int res = segment_tree.FindFirst(
+          first - 1, n, [value](const MaxS& z) { return z.value >= value; });
+      if (res == -1) {
+        res = n;
+      }
+      std::cout << res + 1 << "\n";
+    }
+  }
+}
+
+void Main() {
+  int testcases = 1;
+  // std::cin >> testcases;
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
+}
+
+}  // namespace
+
+int main() {
+  std::ios_base::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+  Main();
+  return 0;
+}

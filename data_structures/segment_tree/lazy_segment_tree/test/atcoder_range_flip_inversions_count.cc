@@ -1,8 +1,33 @@
+// Problem: https://atcoder.jp/contests/practice2/tasks/practice2_l
+// Submission: https://atcoder.jp/contests/practice2/submissions/49023313
+
 #include <algorithm>
-#include <bit>
-#include <cstdint>
 #include <functional>
-#include <vector>
+#include <iostream>
+#include <numeric>
+#include <random>
+
+namespace {
+
+template <class Fun>
+class y_combinator_result {
+  Fun fun_;
+
+ public:
+  template <class T>
+  explicit y_combinator_result(T&& fun)  // NOLINT(*forwarding-reference*)
+      : fun_(std::forward<T>(fun)) {}
+
+  template <class... Args>
+  decltype(auto) operator()(Args&&... args) {
+    return fun_(std::ref(*this), std::forward<Args>(args)...);
+  }
+};
+
+template <class Fun>
+decltype(auto) y_combinator(Fun&& fun) {
+  return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
+}
 
 namespace ds {
 namespace lazy_segment_tree {
@@ -283,3 +308,80 @@ class LazySegmentTree {
 }  // namespace lazy_segment_tree
 
 }  // namespace ds
+
+struct Tag {
+  Tag() : flip(0) {}
+  Tag(int flip) : flip(flip) {}
+  friend Tag operator+(const Tag& lhs, const Tag& rhs) {
+    return lhs.flip ^ rhs.flip;
+  }
+
+  int flip;
+};
+
+struct S {
+  S() : elems(), pairs() {}
+
+  S(int value) : S() { elems[value] = 1; }
+
+  friend S operator+(const S& lhs, const S& rhs) {
+    S res{};
+    res.elems[0] = lhs.elems[0] + rhs.elems[0];
+    res.elems[1] = lhs.elems[1] + rhs.elems[1];
+    res.pairs[0] = lhs.pairs[0] + rhs.pairs[0] + lhs.elems[0] * rhs.elems[1];
+    res.pairs[1] = lhs.pairs[1] + rhs.pairs[1] + lhs.elems[1] * rhs.elems[0];
+    return res;
+  }
+
+  void Apply(const Tag& tag, int) {
+    if (tag.flip == 0) {
+      return;
+    }
+    std::swap(elems[0], elems[1]);
+    std::swap(pairs[0], pairs[1]);
+  }
+
+  std::array<int64_t, 2> elems;
+  std::array<int64_t, 2> pairs;
+};
+
+void RunCase([[maybe_unused]] int testcase) {
+  int n;
+  int q;
+  std::cin >> n >> q;
+  std::vector<int> v(n);
+  for (int& it : v) {
+    std::cin >> it;
+  }
+
+  ds::lazy_segment_tree::LazySegmentTree<S, Tag> segment_tree(v);
+  while (q--) {
+    int t;
+    int first;
+    int last;
+    std::cin >> t >> first >> last;
+    --first;
+    if (t == 1) {
+      segment_tree.Apply(first, last, Tag(1));
+    } else {
+      std::cout << segment_tree.Get(first, last).pairs[1] << "\n";
+    }
+  }
+}
+
+void Main() {
+  int testcases = 1;
+  // std::cin >> testcases;
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
+}
+
+}  // namespace
+
+int main() {
+  std::ios_base::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+  Main();
+  return 0;
+}

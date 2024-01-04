@@ -1,4 +1,12 @@
-#include <bits/stdc++.h>
+// Problem: https://judge.yosupo.jp/problem/point_add_range_sum
+// Submission: https://judge.yosupo.jp/submission/181508
+
+#include <bit>
+#include <cstdint>
+#include <format>
+#include <functional>
+#include <iostream>
+#include <numeric>
 
 namespace {
 
@@ -8,7 +16,8 @@ class y_combinator_result {
 
  public:
   template <class T>
-  explicit y_combinator_result(T&& fun) : fun_(std::forward<T>(fun)) {}
+  explicit y_combinator_result(T&& fun)  // NOLINT(*forwarding-reference*)
+      : fun_(std::forward<T>(fun)) {}
 
   template <class... Args>
   decltype(auto) operator()(Args&&... args) {
@@ -21,207 +30,219 @@ decltype(auto) y_combinator(Fun&& fun) {
   return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
 }
 
-template <typename T, auto Op>
+namespace ds {
+namespace segment_tree {
+
+namespace internal {
+
+template <typename T>
+constexpr bool has_binary_plus = requires(const T& lhs, const T& rhs) {
+  { lhs + rhs } -> std::same_as<T>;
+};
+
+template <typename T>
+concept monoid = std::is_default_constructible_v<T> && has_binary_plus<T>;
+
+}  // namespace internal
+
+template <internal::monoid S>
 class SegmentTree {
-  static_assert(
-      std::is_convertible_v<decltype(Op), T (*)(T, T)> ||
-          std::is_convertible_v<decltype(Op), T (*)(const T&, const T&)>,
-      "Op must work as T(T, T)");
-
  public:
-  explicit SegmentTree(int n) : n_(n), tree_(n * 2) {}
+  explicit SegmentTree(int n)
+      : tree_(std::bit_ceil(static_cast<uint32_t>(n)) * 2),
+        n_(n),
+        size_(static_cast<int>(std::bit_ceil(static_cast<uint32_t>(n)))),
+        log_(std::bit_width(static_cast<uint32_t>(size_) - 1)) {}
 
-  template <typename U, typename std::enable_if_t<std::is_assignable_v<T&, U>,
-                                                  void>* = nullptr>
+  template <typename U>
+    requires std::is_assignable_v<S&, U>
+  explicit SegmentTree(int n, const U& value) : SegmentTree(n) {
+    std::ranges::fill(tree_, value);
+    for (int i = size_ - 1; i > 0; --i) {
+      Pull(i);
+    }
+  }
+
+  template <typename U>
+    requires std::is_assignable_v<S&, U>
   explicit SegmentTree(const std::vector<U>& values)
       : SegmentTree(static_cast<int>(values.size())) {
-    Build(0, 0, n_, values);
+    std::ranges::copy(values, tree_.begin() + size_);
+    for (int i = size_ - 1; i > 0; --i) {
+      Pull(i);
+    }
   }
 
-  template <typename U, typename std::enable_if_t<std::is_assignable_v<T&, U>,
-                                                  void>* = nullptr>
-  void Apply(int pos, const U& value) {
-    Apply(0, 0, n_, pos, value);
+  template <typename U>
+    requires std::is_assignable_v<S&, U>
+  void Set(int pos, const U& value) {
+    pos += size_;
+    tree_[pos] = value;
+    DoPull(pos);
   }
 
-  [[nodiscard]] T Get(int pos) const { return Get(0, 0, n_, pos); }
-
-  [[nodiscard]] T Get(int left, int right) const {
-    return Get(0, 0, n_, left, right);
+  void Apply(int pos, const S& value) {
+    pos += size_;
+    tree_[pos] = tree_[pos] + value;
+    DoPull(pos);
   }
 
-  [[nodiscard]] T GetAll() const { return tree_[0]; }
+  [[nodiscard]] S Get() const { return tree_[1]; }
 
-  using Predicate = std::function<bool(const T&)>;
-
-  int FindFirst(int left, int right, const Predicate& pred) {
-    return FindFirst(0, 0, n_, left, right, pred);
+  [[nodiscard]] S Get(int pos) const {
+    pos += size_;
+    return tree_[pos];
   }
 
-  int FindLast(int left, int right, const Predicate& pred) {
-    return FindLast(0, 0, n_, left, right, pred);
+  [[nodiscard]] S Get(int first, int last) const {
+    first += size_;
+    last += size_;
+    S res_left{};
+    S res_right{};
+    while (first < last) {
+      if ((first & 1) == 1) {
+        res_left = res_left + tree_[first++];
+      }
+      if ((last & 1) == 1) {
+        res_right = tree_[--last] + res_right;
+      }
+      first >>= 1;
+      last >>= 1;
+    }
+    return res_left + res_right;
+  }
+
+  using Predicate = std::function<bool(const S&)>;
+
+  [[nodiscard]] int FindFirst(int first, int last,
+                              const Predicate& pred) const {
+    first += size_;
+    last += size_;
+
+    int first_copy = first;
+    int last_copy = last;
+    while (first_copy < last_copy) {
+      if ((first_copy & 1) == 1) {
+        if (pred(tree_[first_copy])) {
+          return Descent(first_copy, pred, DescentDirection::kLeft);
+        }
+        first_copy += 1;
+      }
+
+      first_copy >>= 1;
+      last_copy >>= 1;
+    }
+
+    int height = std::bit_width(static_cast<uint32_t>(last_copy));
+    for (int i = log_ - height; i >= 0; --i) {
+      last_copy <<= 1;
+      if (((last >> i) & 1) == 1) {
+        if (pred(tree_[last_copy])) {
+          return Descent(last_copy, pred, DescentDirection::kLeft);
+        }
+        last_copy += 1;
+      }
+    }
+
+    return -1;
+  }
+
+  [[nodiscard]] int FindLast(int first, int last, const Predicate& pred) const {
+    first += size_;
+    last += size_;
+
+    uint32_t mask = 1;
+    int first_copy = first;
+    int last_copy = last;
+    while (first_copy < last_copy) {
+      mask <<= 1;
+      if ((first_copy & 1) == 1) {
+        mask += 1;
+        first_copy += 1;
+      }
+
+      if ((last_copy & 1) == 1) {
+        last_copy -= 1;
+        if (pred(tree_[last_copy])) {
+          return Descent(last_copy, pred, DescentDirection::kRight);
+        }
+      }
+
+      first_copy >>= 1;
+      last_copy >>= 1;
+    }
+
+    while (!std::has_single_bit(mask)) {
+      int z = std::countr_zero(mask) + 1;
+      mask >>= z;
+      first_copy <<= z;
+      first_copy -= 1;
+      if (pred(tree_[first_copy])) {
+        return Descent(first_copy, pred, DescentDirection::kRight);
+      }
+    }
+
+    return -1;
   }
 
  private:
-  template <typename U, typename std::enable_if_t<std::is_assignable_v<T&, U>,
-                                                  void>* = nullptr>
-  void Build(int x, int l, int r, const std::vector<U>& values) {
-    if (l + 1 == r) {
-      tree_[x] = values[l];
-      return;
+  enum class DescentDirection {
+    kLeft = 0,
+    kRight = 1,
+  };
+
+  [[nodiscard]] int Descent(int k, const Predicate& pred,
+                            DescentDirection direction) const {
+    while (k < size_) {
+      k <<= 1;
+      k ^= static_cast<int>(direction);
+      k ^= !pred(tree_[k]);
     }
-    int mid = (l + r) / 2;
-    int z = x + (mid - l) * 2;
-    Build(x + 1, l, mid, values);
-    Build(z, mid, r, values);
-    Pull(x, z);
+    return k - size_;
   }
 
-  template <typename U, typename std::enable_if_t<std::is_assignable_v<T&, U>,
-                                                  void>* = nullptr>
-  void Apply(int x, int l, int r, int pos, const U& value) {
-    if (l + 1 == r) {
-      tree_[x] = value;
-      return;
+  void DoPull(int v) {
+    for (int i = 1; i <= log_; ++i) {
+      Pull(v >> i);
     }
-    int mid = (l + r) / 2;
-    int z = x + (mid - l) * 2;
-    if (pos < mid) {
-      Apply(x + 1, l, mid, pos, value);
-    } else {
-      Apply(z, mid, r, pos, value);
-    }
-    Pull(x, z);
   }
 
-  [[nodiscard]] T Get(int x, int l, int r, int pos) const {
-    while (l + 1 != r) {
-      int mid = (l + r) / 2;
-      int z = x + (mid - l) * 2;
-      if (pos < mid) {
-        r = mid;
-        x = x + 1;
-      } else {
-        l = mid;
-        x = z;
-      }
-    }
-    return tree_[x];
-  }
+  inline void Pull(int k) { tree_[k] = tree_[k << 1] + tree_[k << 1 | 1]; }
 
-  [[nodiscard]] T Get(int x, int l, int r, int ql, int qr) const {
-    if (ql <= l && r <= qr) {
-      return tree_[x];
-    }
-    int mid = (l + r) / 2;
-    int z = x + (mid - l) * 2;
-    if (qr <= mid) {
-      return Get(x + 1, l, mid, ql, qr);
-    }
-    if (ql >= mid) {
-      return Get(z, mid, r, ql, qr);
-    }
-    return Op(Get(x + 1, l, mid, ql, qr), Get(z, mid, r, ql, qr));
-  }
-
-  int FindFirst(int x, int l, int r, int ql, int qr, const Predicate& pred) {
-    if (ql <= l && r <= qr) {
-      if (!pred(tree_[x])) {
-        return -1;
-      }
-      return FindFirstKnowingly(x, l, r, pred);
-    }
-    int mid = (l + r) / 2;
-    int z = x + (mid - l) * 2;
-    int result = -1;
-    if (ql < mid) {
-      result = FindFirst(x + 1, l, mid, ql, qr, pred);
-    }
-    if (result == -1 && qr > mid) {
-      result = FindFirst(z, mid, r, ql, qr, pred);
-    }
-    return result;
-  }
-
-  int FindLast(int x, int l, int r, int ql, int qr, const Predicate& pred) {
-    if (ql <= l && r <= qr) {
-      if (!pred(tree_[x])) {
-        return -1;
-      }
-      return FindLastKnowingly(x, l, r, pred);
-    }
-    int mid = (l + r) / 2;
-    int z = x + (mid - l) * 2;
-    int result = -1;
-    if (qr > mid) {
-      result = FindLast(z, mid, r, ql, qr, pred);
-    }
-    if (result == -1 && ql < mid) {
-      result = FindLast(x + 1, l, mid, ql, qr, pred);
-    }
-    return result;
-  }
-
-  int FindFirstKnowingly(int x, int l, int r, const Predicate& pred) {
-    while (l + 1 != r) {
-      int mid = (l + r) / 2;
-      int z = x + (mid - l) * 2;
-      if (pred(tree_[x + 1])) {
-        r = mid;
-        x = x + 1;
-      } else {
-        l = mid;
-        x = z;
-      }
-    }
-    return l;
-  }
-
-  int FindLastKnowingly(int x, int l, int r, const Predicate& pred) {
-    while (l + 1 != r) {
-      int mid = (l + r) / 2;
-      int z = x + (mid - l) * 2;
-      if (pred(tree_[z])) {
-        l = mid;
-        x = z;
-      } else {
-        r = mid;
-        x = x + 1;
-      }
-    }
-    return l;
-  }
-
-  inline void Pull(int x, int z) { tree_[x] = Op(tree_[x + 1], tree_[z]); }
-
-  int n_;
-  std::vector<T> tree_;
+  std::vector<S> tree_;
+  const int n_;
+  const int size_;
+  const int log_;
 };
 
-inline int64_t Op(int64_t lhs, int64_t rhs) { return lhs + rhs; }
+}  // namespace segment_tree
 
-// https://judge.yosupo.jp/problem/point_add_range_sum
-// https://judge.yosupo.jp/submission/179407
+}  // namespace ds
+
 void RunCase([[maybe_unused]] int testcase) {
   int n;
   int q;
   std::cin >> n >> q;
 
-  std::vector<int64_t> v(n);
-  for (int i = 0; i < n; ++i) {
-    std::cin >> v[i];
+  std::vector<int> v(n);
+  for (int& it : v) {
+    std::cin >> it;
   }
 
-  SegmentTree<int64_t, Op> segment_tree(v);
+  ds::segment_tree::SegmentTree<int64_t> segment_tree(v);
   while (q--) {
     int t;
-    int x;
-    int y;
-    std::cin >> t >> x >> y;
+    std::cin >> t;
     if (t == 0) {
-      segment_tree.Apply(x, v[x] += y);
+      int pos;
+      int value;
+      std::cin >> pos >> value;
+      segment_tree.Apply(pos, value);
     } else {
-      std::cout << segment_tree.Get(x, y) << "\n";
+      int first;
+      int last;
+      std::cin >> first >> last;
+      std::cout << segment_tree.Get(first, last) << "\n";
     }
   }
 }

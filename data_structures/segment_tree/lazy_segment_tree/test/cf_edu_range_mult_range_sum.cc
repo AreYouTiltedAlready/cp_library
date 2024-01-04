@@ -1,7 +1,9 @@
-// Problem: https://judge.yosupo.jp/problem/point_set_range_composite
-// Submission: https://judge.yosupo.jp/submission/181510
+// Problem:
+// https://codeforces.com/edu/course/2/lesson/5/2/practice/contest/279653/problem/B
+// Submission:
+// https://codeforces.com/edu/course/2/lesson/5/2/practice/contest/279653/submission/240224941
 
-#include <format>
+#include <algorithm>
 #include <functional>
 #include <iostream>
 #include <numeric>
@@ -30,7 +32,7 @@ decltype(auto) y_combinator(Fun&& fun) {
 }
 
 namespace ds {
-namespace segment_tree {
+namespace lazy_segment_tree {
 
 namespace internal {
 
@@ -42,20 +44,26 @@ constexpr bool has_binary_plus = requires(const T& lhs, const T& rhs) {
 template <typename T>
 concept monoid = std::is_default_constructible_v<T> && has_binary_plus<T>;
 
+template <typename T, typename U>
+concept lazy_tag = has_binary_plus<T> && requires(U& u, const T& t, int z) {
+  { u.Apply(t, z) } -> std::same_as<void>;
+};
+
 }  // namespace internal
 
-template <internal::monoid S>
-class SegmentTree {
+template <internal::monoid S, internal::lazy_tag<S> T>
+class LazySegmentTree {
  public:
-  explicit SegmentTree(int n)
+  explicit LazySegmentTree(int n)
       : tree_(std::bit_ceil(static_cast<uint32_t>(n)) * 2),
+        tag_(std::bit_ceil(static_cast<uint32_t>(n))),
         n_(n),
         size_(static_cast<int>(std::bit_ceil(static_cast<uint32_t>(n)))),
         log_(std::bit_width(static_cast<uint32_t>(size_) - 1)) {}
 
   template <typename U>
     requires std::is_assignable_v<S&, U>
-  explicit SegmentTree(int n, const U& value) : SegmentTree(n) {
+  explicit LazySegmentTree(int n, const U& value) : LazySegmentTree(n) {
     std::ranges::fill(tree_, value);
     for (int i = size_ - 1; i > 0; --i) {
       Pull(i);
@@ -64,8 +72,8 @@ class SegmentTree {
 
   template <typename U>
     requires std::is_assignable_v<S&, U>
-  explicit SegmentTree(const std::vector<U>& values)
-      : SegmentTree(static_cast<int>(values.size())) {
+  explicit LazySegmentTree(const std::vector<U>& values)
+      : LazySegmentTree(static_cast<int>(values.size())) {
     std::ranges::copy(values, tree_.begin() + size_);
     for (int i = size_ - 1; i > 0; --i) {
       Pull(i);
@@ -76,26 +84,63 @@ class SegmentTree {
     requires std::is_assignable_v<S&, U>
   void Set(int pos, const U& value) {
     pos += size_;
+    for (int i = log_; i > 0; --i) {
+      Push(pos >> i);
+    }
     tree_[pos] = value;
-    DoPull(pos);
+    for (int i = 1; i <= log_; ++i) {
+      Pull(pos >> i);
+    }
   }
 
-  void Apply(int pos, const S& value) {
+  void Apply(int pos, const T& tag) {
     pos += size_;
-    tree_[pos] = tree_[pos] + value;
-    DoPull(pos);
+    for (int i = log_; i > 0; --i) {
+      Push(pos >> i);
+    }
+    tree_[pos].Apply(tag, 1);
+    for (int i = 1; i <= log_; ++i) {
+      Pull(pos >> i);
+    }
   }
 
   [[nodiscard]] S Get() const { return tree_[1]; }
 
-  [[nodiscard]] S Get(int pos) const {
+  S Get(int pos) {
     pos += size_;
+    for (int i = log_; i > 0; --i) {
+      Push(pos >> i);
+    }
     return tree_[pos];
   }
 
-  [[nodiscard]] S Get(int first, int last) const {
+  void Apply(int first, int last, const T& tag) {
     first += size_;
     last += size_;
+    DoPush(first, last);
+    {
+      int first_copy = first;
+      int last_copy = last;
+      while (first < last) {
+        if ((first & 1) == 1) {
+          ApplyAll(first++, tag);
+        }
+        if ((last & 1) == 1) {
+          ApplyAll(--last, tag);
+        }
+        first >>= 1;
+        last >>= 1;
+      }
+      first = first_copy;
+      last = last_copy;
+    }
+    DoPull(first, last);
+  }
+
+  S Get(int first, int last) {
+    first += size_;
+    last += size_;
+    DoPush(first, last);
     S res_left{};
     S res_right{};
     while (first < last) {
@@ -113,11 +158,10 @@ class SegmentTree {
 
   using Predicate = std::function<bool(const S&)>;
 
-  [[nodiscard]] int FindFirst(int first, int last,
-                              const Predicate& pred) const {
+  [[nodiscard]] int FindFirst(int first, int last, const Predicate& pred) {
     first += size_;
     last += size_;
-
+    DoPush(first, last);
     int first_copy = first;
     int last_copy = last;
     while (first_copy < last_copy) {
@@ -146,9 +190,10 @@ class SegmentTree {
     return -1;
   }
 
-  [[nodiscard]] int FindLast(int first, int last, const Predicate& pred) const {
+  [[nodiscard]] int FindLast(int first, int last, const Predicate& pred) {
     first += size_;
     last += size_;
+    DoPush(first, last);
 
     uint32_t mask = 1;
     int first_copy = first;
@@ -191,8 +236,9 @@ class SegmentTree {
   };
 
   [[nodiscard]] int Descent(int k, const Predicate& pred,
-                            DescentDirection direction) const {
+                            DescentDirection direction) {
     while (k < size_) {
+      Push(k);
       k <<= 1;
       k ^= static_cast<int>(direction);
       k ^= !pred(tree_[k]);
@@ -200,21 +246,68 @@ class SegmentTree {
     return k - size_;
   }
 
-  void DoPull(int v) {
-    for (int i = 1; i <= log_; ++i) {
-      Pull(v >> i);
+  void ApplyAll(int k, const T& tag) {
+    int length = size_ >> (std::bit_width(static_cast<uint32_t>(k)) - 1);
+    tree_[k].Apply(tag, length);
+    if (length != 1) [[likely]] {
+      tag_[k] = tag_[k] + tag;
     }
   }
 
-  inline void Pull(int k) { tree_[k] = tree_[k << 1] + tree_[k << 1 | 1]; }
+  void DoPull(int first, int last) {
+    const int last_common_bit = std::max(
+        1, static_cast<int>(
+               std::bit_width(static_cast<uint32_t>(first ^ (last - 1)))));
+    int first_z = std::max(1, std::countr_zero(static_cast<uint32_t>(first)));
+    for (int i = first_z; i < last_common_bit; ++i) {
+      Pull(first >> i);
+    }
+    int last_z = std::max(1, std::countr_zero(static_cast<uint32_t>(last)));
+    for (int i = last_z; i < last_common_bit; ++i) {
+      Pull((last - 1) >> i);
+    }
+    for (int i = last_common_bit; i <= log_; ++i) {
+      Pull(first >> i);
+    }
+  }
+
+  void DoPush(int first, int last) {
+    const int last_common_bit = std::max(
+        1, static_cast<int>(
+               std::bit_width(static_cast<uint32_t>(first ^ (last - 1)))));
+    for (int i = log_; i >= last_common_bit; --i) {
+      Push(first >> i);
+    }
+    int first_z = std::max(1, std::countr_zero(static_cast<uint32_t>(first)));
+    for (int i = last_common_bit - 1; i >= first_z; --i) {
+      Push(first >> i);
+    }
+    int last_z = std::max(1, std::countr_zero(static_cast<uint32_t>(last)));
+    for (int i = last_common_bit - 1; i >= last_z; --i) {
+      Push((last - 1) >> i);
+    }
+  }
+
+  void Push(int k) {
+    ApplyAll(k << 1, tag_[k]);
+    ApplyAll(k << 1 | 1, tag_[k]);
+    tag_[k] = T();
+  }
+
+  inline void Pull(int k) {
+    tree_[k] = tree_[k << 1] + tree_[k << 1 | 1];
+    int length = size_ >> (std::bit_width(static_cast<uint32_t>(k)) - 1);
+    tree_[k].Apply(tag_[k], length);
+  }
 
   std::vector<S> tree_;
+  std::vector<T> tag_;
   const int n_;
   const int size_;
   const int log_;
 };
 
-}  // namespace segment_tree
+}  // namespace lazy_segment_tree
 
 }  // namespace ds
 
@@ -480,47 +573,44 @@ using MLong = internal::LazyMontgomeryModInt<int64_t, kMod>;
 
 }  // namespace modular
 
-using Mint = modular::MInt<998244353>;
+using Mint = modular::MInt<1000000007>;
 
-struct Linear {
-  Linear() : k(Mint::Raw(1)), b() {}
-  Linear(Mint k, Mint b) : k(k), b(b) {}
+struct Tag {
+  Tag() : c(Mint::Raw(1)) {}
+  Tag(Mint c) : c(c) {}
 
-  [[nodiscard]] Mint operator()(Mint x) const { return k * x + b; }
+  friend Tag operator+(const Tag& lhs, const Tag& rhs) { return lhs.c * rhs.c; }
 
-  friend Linear operator+(const Linear& lhs, const Linear& rhs) {
-    return {lhs.k * rhs.k, lhs.b * rhs.k + rhs.b};
-  }
-
-  Mint k;
-  Mint b;
+  Mint c;
 };
+
+struct S {
+  S() : c() {}
+  S(Mint c) : c(c) {}
+
+  void Apply(const Tag& t, int) { c *= t.c; }
+  friend S operator+(const S& lhs, const S& rhs) { return lhs.c + rhs.c; }
+  Mint c;
+};
+
 void RunCase([[maybe_unused]] int testcase) {
   int n;
   int q;
   std::cin >> n >> q;
 
-  std::vector<Linear> v(n);
-  for (auto& [k, b] : v) {
-    std::cin >> k >> b;
-  }
-
-  ds::segment_tree::SegmentTree<Linear> segment_tree(v);
+  ds::lazy_segment_tree::LazySegmentTree<S, Tag> lazy_segment_tree(
+      n, Mint::Raw(1));
   while (q--) {
     int t;
-    std::cin >> t;
-    if (t == 0) {
-      int pos;
-      Mint k;
-      Mint b;
-      std::cin >> pos >> k >> b;
-      segment_tree.Set(pos, Linear(k, b));
+    int first;
+    int last;
+    std::cin >> t >> first >> last;
+    if (t == 1) {
+      Mint c;
+      std::cin >> c;
+      lazy_segment_tree.Apply(first, last, c);
     } else {
-      int first;
-      int last;
-      Mint x;
-      std::cin >> first >> last >> x;
-      std::cout << segment_tree.Get(first, last)(x) << "\n";
+      std::cout << lazy_segment_tree.Get(first, last).c << "\n";
     }
   }
 }

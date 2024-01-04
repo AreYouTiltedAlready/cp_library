@@ -1,8 +1,35 @@
+// Problem:
+// https://codeforces.com/edu/course/2/lesson/5/3/practice/contest/280799/problem/C
+// Submission:
+// https://codeforces.com/edu/course/2/lesson/5/3/practice/contest/280799/submission/240234662
+
 #include <algorithm>
-#include <bit>
-#include <cstdint>
 #include <functional>
-#include <vector>
+#include <iostream>
+#include <numeric>
+#include <random>
+
+namespace {
+
+template <class Fun>
+class y_combinator_result {
+  Fun fun_;
+
+ public:
+  template <class T>
+  explicit y_combinator_result(T&& fun)  // NOLINT(*forwarding-reference*)
+      : fun_(std::forward<T>(fun)) {}
+
+  template <class... Args>
+  decltype(auto) operator()(Args&&... args) {
+    return fun_(std::ref(*this), std::forward<Args>(args)...);
+  }
+};
+
+template <class Fun>
+decltype(auto) y_combinator(Fun&& fun) {
+  return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
+}
 
 namespace ds {
 namespace lazy_segment_tree {
@@ -283,3 +310,64 @@ class LazySegmentTree {
 }  // namespace lazy_segment_tree
 
 }  // namespace ds
+
+struct S {
+  S() : value(0) {}
+  S(int value) : value(value) {}
+
+  void Apply(int tag, int) { value += tag; }
+
+  friend S operator+(const S& lhs, const S& rhs) {
+    return lhs.value < rhs.value ? rhs : lhs;
+  }
+
+  int value;
+};
+
+struct Searcher {
+  explicit Searcher(int k) : k(k) {}
+
+  bool operator()(const S& s) const { return s.value >= k; }
+  int k;
+};
+
+void RunCase([[maybe_unused]] int testcase) {
+  int n;
+  int q;
+  std::cin >> n >> q;
+
+  ds::lazy_segment_tree::LazySegmentTree<S, int> lazy_segment_tree(n);
+  while (q--) {
+    int t;
+    std::cin >> t;
+    if (t == 1) {
+      int first;
+      int last;
+      int value;
+      std::cin >> first >> last >> value;
+      lazy_segment_tree.Apply(first, last, value);
+    } else {
+      int k;
+      int first;
+      std::cin >> k >> first;
+      std::cout << lazy_segment_tree.FindFirst(first, n, Searcher(k)) << "\n";
+    }
+  }
+}
+
+void Main() {
+  int testcases = 1;
+  // std::cin >> testcases;
+  for (int tt = 1; tt <= testcases; ++tt) {
+    RunCase(tt);
+  }
+}
+
+}  // namespace
+
+int main() {
+  std::ios_base::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+  Main();
+  return 0;
+}
