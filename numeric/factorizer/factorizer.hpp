@@ -177,23 +177,6 @@ class Factorizer {
   }
 
  private:
-  template <typename T>
-  static T Gcd(T a, T b) {
-    if (a == 0 || b == 0) {
-      return a + b;
-    }
-    int common = std::countr_zero(a | b);
-    b >>= std::countr_zero(b);
-    do {
-      a >>= std::countr_zero(a);
-      if (a < b) {
-        std::swap(a, b);
-      }
-      a -= b;
-    } while (a != 0);
-    return b << common;
-  }
-
   static inline std::mt19937_64 rng = std::mt19937_64(
       std::chrono::steady_clock::now().time_since_epoch().count());
 
@@ -228,8 +211,8 @@ class Factorizer {
           y = g(g(y));
           products[i] = space.Product(products[i - 1], x < y ? y - x : x - y);
         }
-      } while ((result_gcd = Gcd(space.Reduce(products[jump]),
-                                 static_cast<unsigned_t>(n))) == 1);
+      } while ((result_gcd = std::gcd(space.Reduce(products[jump]),
+                                      static_cast<unsigned_t>(n))) == 1);
       if (result_gcd == n) {
         assert(space.AreEqual(products.back(), 0));
         int index = jump;
@@ -237,7 +220,7 @@ class Factorizer {
           index -= 1;
         }
         result_gcd =
-            Gcd(space.Reduce(products[index]), static_cast<unsigned_t>(n));
+            std::gcd(space.Reduce(products[index]), static_cast<unsigned_t>(n));
       }
       if (result_gcd != n && result_gcd != 1) {
         return result_gcd;

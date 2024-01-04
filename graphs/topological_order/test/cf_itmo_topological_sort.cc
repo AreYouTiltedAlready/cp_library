@@ -1,5 +1,6 @@
-// Problem: https://judge.yosupo.jp/problem/two_sat
-// Submission: https://judge.yosupo.jp/submission/181393
+// Problem: https://codeforces.com/group/dAhOSPf3oD/contest/404821/problem/A
+// Submission:
+// https://codeforces.com/group/dAhOSPf3oD/contest/404821/submission/240162838
 
 #include <ext/pb_ds/priority_queue.hpp>
 #include <iostream>
@@ -26,6 +27,38 @@ template <class Fun>
 decltype(auto) y_combinator(Fun&& fun) {
   return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
 }
+
+namespace utils {
+
+template <typename T>
+class simple_queue {
+ public:
+  simple_queue() : pos_(0), payload_({}) {}
+
+  explicit simple_queue(int n) : simple_queue() { payload_.reserve(n); }
+
+  void reserve(int n) { payload_.reserve(n); }
+
+  void push(const T& value) { payload_.push_back(value); }
+
+  void push(T&& value) { payload_.push_back(std::forward<T>(value)); }
+
+  T poll() { return payload_[pos_++]; }
+
+  [[nodiscard]] bool empty() const {
+    return pos_ == static_cast<int>(payload_.size());
+  }
+
+  [[nodiscard]] int size() const {
+    return static_cast<int>(payload_.size()) - pos_;
+  }
+
+ private:
+  int pos_;
+  std::vector<T> payload_;
+};
+
+}  // namespace utils
 
 namespace graphs {
 namespace graph_traits {
@@ -175,156 +208,73 @@ template <typename Cost>
 using WeightedDigraph =
     graph_traits::internal::Digraph<graph_traits::internal::WeightedEdge<Cost>>;
 
-namespace scc {
-namespace internal {
+namespace topological_order {
 
 template <graph_traits::directed_graph Graph>
-Graph Reversed(const Graph& graph) {
-  Graph result(graph.n(), graph.m());
-  for (auto edge : graph.edges()) {
-    std::swap(edge.from, edge.to);
-    result.AddEdge(std::move(edge));
-  }
-  return result;
-}
-
-}  // namespace internal
-
-template <graph_traits::directed_graph Graph>
-std::vector<int> FindSCC(const Graph& graph) {
+std::optional<std::vector<int>> TopologicalOrder(const Graph& graph) {
   const int n = graph.n();
+  std::vector<int> in_degree(n);
+  for (const auto& edge : graph.edges()) {
+    in_degree[edge.to] += 1;
+  }
+
+  ::utils::simple_queue<int> q;
+  for (int i = 0; i < n; ++i) {
+    if (in_degree[i] == 0) {
+      q.push(i);
+    }
+  }
+
   std::vector<int> order;
   order.reserve(n);
-
-  {
-    const auto& g = graph.g();
-    const auto& edges = graph.edges();
-    std::vector<char> used(n);
-    auto Dfs = [&](auto& self, int v) -> void {
-      used[v] = true;
-      for (int e_id : g[v]) {
-        int to = edges[e_id].to;
-        if (!used[to]) {
-          self(self, to);
-        }
-      }
-      order.push_back(v);
-    };
-
-    for (int i = 0; i < n; ++i) {
-      if (!used[i]) {
-        Dfs(Dfs, i);
+  const auto& g = graph.g();
+  const auto& edges = graph.edges();
+  while (!q.empty()) {
+    int v = q.poll();
+    order.push_back(v);
+    for (int e_id : g[v]) {
+      const auto& edge = edges[e_id];
+      if (--in_degree[edge.to] == 0) {
+        q.push(edge.to);
       }
     }
   }
 
-  const Graph rev_graph = internal::Reversed(graph);
-  const auto& rev_g = rev_graph.g();
-  const auto& rev_edges = rev_graph.edges();
-
-  int current_id = 0;
-  std::vector<int> scc_id(n, -1);
-  auto Dfs = [&](auto& self, int v) -> void {
-    scc_id[v] = current_id;
-    for (int e_id : rev_g[v]) {
-      int to = rev_edges[e_id].to;
-      if (scc_id[to] == -1) {
-        self(self, to);
-      }
-    }
-  };
-  std::reverse(order.begin(), order.end());
-  for (int id : order) {
-    if (scc_id[id] == -1) {
-      Dfs(Dfs, id);
-      current_id += 1;
-    }
+  if (order.size() < n) {
+    return std::nullopt;
   }
-  return scc_id;
+  return order;
 }
 
-}  // namespace scc
-namespace two_sat {
-
-class TwoSat {
- public:
-  explicit TwoSat(int n, int m) : n_(n), g_(2 * n, 2 * m) {}
-
-  void Implies(int u, int value_u, int v, int value_v) {
-    g_.AddEdge(u * 2 + value_u, v * 2 + value_v);
-  }
-
-  void AddOrCondition(int u, int value_u, int v, int value_v) {
-    Implies(u, value_u ^ 1, v, value_v);
-    Implies(v, value_v ^ 1, u, value_u);
-  }
-
-  [[nodiscard]] std::optional<std::vector<char>> Solve() const {
-    std::vector<char> result(n_);
-    const std::vector<int> scc = scc::FindSCC(g_);
-    for (int i = 0; i < n_; ++i) {
-      if (scc[i * 2] == scc[i * 2 + 1]) {
-        return std::nullopt;
-      }
-      result[i] = static_cast<char>(scc[i * 2] < scc[i * 2 + 1]);
-    }
-    return result;
-  }
-
- private:
-  int n_;
-  Digraph g_;
-};
-
-}  // namespace two_sat
+}  // namespace topological_order
 
 }  // namespace graphs
 
 void RunCase([[maybe_unused]] int testcase) {
-  {
-    std::string s;
-    std::cin >> s >> s;
-  }
-
   int n;
   int m;
   std::cin >> n >> m;
-  graphs::two_sat::TwoSat ts(n, m);
+
+  graphs::Digraph g(n, m);
   for (int i = 0; i < m; ++i) {
     int u;
     int v;
-    int z;
-    std::cin >> u >> v >> z;
-
-    int value_u{};
-    int value_v{};
-    if (u < 0) {
-      u = -(u + 1);
-      value_u = 0;
-    } else {
-      u = u - 1;
-      value_u = 1;
-    }
-    if (v < 0) {
-      v = -(v + 1);
-      value_v = 0;
-    } else {
-      v = v - 1;
-      value_v = 1;
-    }
-
-    ts.AddOrCondition(u, value_u, v, value_v);
+    std::cin >> u >> v;
+    --u;
+    --v;
+    g.AddEdge(u, v);
   }
 
-  const std::optional<std::vector<char>> result = ts.Solve();
-  if (!result.has_value()) {
-    std::cout << "s UNSATISFIABLE\n";
+  const std::optional<std::vector<int>> order =
+      graphs::topological_order::TopologicalOrder(g);
+  if (!order.has_value()) {
+    std::cout << "-1\n";
+    return;
   } else {
-    std::cout << "s SATISFIABLE\nv ";
-    for (int i = 0; i < n; ++i) {
-      std::cout << ((*result)[i] ? i + 1 : -(i + 1)) << " ";
+    for (int id : *order) {
+      std::cout << id + 1 << " ";
     }
-    std::cout << "0\n";
+    std::cout << "\n";
   }
 }
 

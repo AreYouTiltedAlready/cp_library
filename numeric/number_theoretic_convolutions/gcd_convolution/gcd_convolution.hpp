@@ -1,4 +1,3 @@
-#include <type_traits>
 #include <vector>
 
 std::vector<int> PrimeEnumerate(int n) {

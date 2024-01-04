@@ -16,14 +16,17 @@ class SparseTable {
       "Op must work as S(S, S)");
 
  public:
-  explicit SparseTable(const std::vector<T>& values) {
+  template <typename U,
+            std::enable_if_t<std::is_same_v<std::decay_t<U>, std::vector<T>>,
+                             void>* = nullptr>
+  explicit SparseTable(U&& values) {
     const int n = static_cast<int>(values.size());  // n = 0 is not allowed
     const int log = std::bit_width(static_cast<uint32_t>(n));
     matrix_.resize(log);
     for (int i = 0; i < log; ++i) {
       matrix_[i].resize(n - (1 << i) + 1);
     }
-    std::copy(values.cbegin(), values.cend(), matrix_.front().begin());
+    matrix_[0] = std::forward<U>(values);
     for (int i = 1; i < log; ++i) {
       for (int j = 0; j < n - (1 << i) + 1; ++j) {
         matrix_[i][j] =

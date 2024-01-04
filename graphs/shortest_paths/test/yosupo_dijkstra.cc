@@ -1,5 +1,5 @@
-// Problem: https://judge.yosupo.jp/problem/two_sat
-// Submission: https://judge.yosupo.jp/submission/181393
+// Problem: https://judge.yosupo.jp/problem/shortest_path
+// Submission: https://judge.yosupo.jp/submission/181396
 
 #include <ext/pb_ds/priority_queue.hpp>
 #include <iostream>
@@ -26,6 +26,38 @@ template <class Fun>
 decltype(auto) y_combinator(Fun&& fun) {
   return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
 }
+
+namespace utils {
+
+template <typename T>
+class simple_queue {
+ public:
+  simple_queue() : pos_(0), payload_({}) {}
+
+  explicit simple_queue(int n) : simple_queue() { payload_.reserve(n); }
+
+  void reserve(int n) { payload_.reserve(n); }
+
+  void push(const T& value) { payload_.push_back(value); }
+
+  void push(T&& value) { payload_.push_back(std::forward<T>(value)); }
+
+  T poll() { return payload_[pos_++]; }
+
+  [[nodiscard]] bool empty() const {
+    return pos_ == static_cast<int>(payload_.size());
+  }
+
+  [[nodiscard]] int size() const {
+    return static_cast<int>(payload_.size()) - pos_;
+  }
+
+ private:
+  int pos_;
+  std::vector<T> payload_;
+};
+
+}  // namespace utils
 
 namespace graphs {
 namespace graph_traits {
@@ -175,156 +207,148 @@ template <typename Cost>
 using WeightedDigraph =
     graph_traits::internal::Digraph<graph_traits::internal::WeightedEdge<Cost>>;
 
-namespace scc {
-namespace internal {
+namespace shortest_paths {
 
-template <graph_traits::directed_graph Graph>
-Graph Reversed(const Graph& graph) {
-  Graph result(graph.n(), graph.m());
-  for (auto edge : graph.edges()) {
-    std::swap(edge.from, edge.to);
-    result.AddEdge(std::move(edge));
+template <typename Cost>
+struct SSSPInfo {
+  using cost_t = Cost;
+  static constexpr cost_t kUnreachableSentinel =
+      std::numeric_limits<cost_t>::max() / 2;
+  explicit SSSPInfo(int n) : distance(n, kUnreachableSentinel), p_edge(n, -1) {}
+
+  std::vector<Cost> distance;
+  std::vector<int> p_edge;
+};
+
+template <typename Distance, graph_traits::weighted_graph Graph>
+SSSPInfo<Distance> Dijkstra(const Graph& graph,
+                            const std::vector<int>& source) {
+  using distance_t = Distance;
+  static constexpr distance_t kUnreachableSentinel =
+      std::numeric_limits<distance_t>::max() / 2;
+
+  SSSPInfo<distance_t> result(graph.n());
+  __gnu_pbds::priority_queue<std::pair<distance_t, int>, std::greater<>> heap;
+  std::vector<typename decltype(heap)::point_iterator> its(graph.n(),
+                                                           heap.end());
+
+  for (int s : source) {
+    result.distance[s] = 0;
+    its[s] = heap.push(std::make_pair(0, s));
   }
+
+  const auto& g = graph.g();
+  const auto& edges = graph.edges();
+  std::vector<distance_t>& dist = result.distance;
+  std::vector<int>& p_edge = result.p_edge;
+
+  while (!heap.empty()) {
+    auto [d, v] = heap.top();
+    its[v] = heap.end();
+    heap.pop();
+    for (int e_id : g[v]) {
+      const auto& edge = edges[e_id];
+      int to = v ^ edge.from ^ edge.to;
+      if (distance_t new_cost = d + edge.cost; new_cost < dist[to]) {
+        p_edge[to] = e_id;
+        dist[to] = new_cost;
+        auto new_state = std::make_pair(new_cost, to);
+        if (its[to] == heap.end()) {
+          its[to] = heap.push(new_state);
+        } else {
+          heap.modify(its[to], new_state);
+        }
+      }
+    }
+  }
+
   return result;
 }
 
-}  // namespace internal
-
-template <graph_traits::directed_graph Graph>
-std::vector<int> FindSCC(const Graph& graph) {
-  const int n = graph.n();
-  std::vector<int> order;
-  order.reserve(n);
-
-  {
-    const auto& g = graph.g();
-    const auto& edges = graph.edges();
-    std::vector<char> used(n);
-    auto Dfs = [&](auto& self, int v) -> void {
-      used[v] = true;
-      for (int e_id : g[v]) {
-        int to = edges[e_id].to;
-        if (!used[to]) {
-          self(self, to);
-        }
-      }
-      order.push_back(v);
-    };
-
-    for (int i = 0; i < n; ++i) {
-      if (!used[i]) {
-        Dfs(Dfs, i);
-      }
-    }
-  }
-
-  const Graph rev_graph = internal::Reversed(graph);
-  const auto& rev_g = rev_graph.g();
-  const auto& rev_edges = rev_graph.edges();
-
-  int current_id = 0;
-  std::vector<int> scc_id(n, -1);
-  auto Dfs = [&](auto& self, int v) -> void {
-    scc_id[v] = current_id;
-    for (int e_id : rev_g[v]) {
-      int to = rev_edges[e_id].to;
-      if (scc_id[to] == -1) {
-        self(self, to);
-      }
-    }
-  };
-  std::reverse(order.begin(), order.end());
-  for (int id : order) {
-    if (scc_id[id] == -1) {
-      Dfs(Dfs, id);
-      current_id += 1;
-    }
-  }
-  return scc_id;
+template <typename Distance, graph_traits::weighted_graph Graph>
+SSSPInfo<Distance> Dijkstra(const Graph& graph, int source) {
+  return Dijkstra<Distance, Graph>(graph, std::vector<int>(1, source));
 }
 
-}  // namespace scc
-namespace two_sat {
-
-class TwoSat {
- public:
-  explicit TwoSat(int n, int m) : n_(n), g_(2 * n, 2 * m) {}
-
-  void Implies(int u, int value_u, int v, int value_v) {
-    g_.AddEdge(u * 2 + value_u, v * 2 + value_v);
+template <graph_traits::graph Graph>
+SSSPInfo<int> Bfs(const Graph& graph, const std::vector<int>& source) {
+  SSSPInfo<int> result(graph.n());
+  ::utils::simple_queue<int> q;
+  for (int s : source) {
+    q.push(s);
+    result.distance[s] = 0;
   }
 
-  void AddOrCondition(int u, int value_u, int v, int value_v) {
-    Implies(u, value_u ^ 1, v, value_v);
-    Implies(v, value_v ^ 1, u, value_u);
-  }
+  const auto& g = graph.g();
+  const auto& edges = graph.edges();
+  std::vector<int>& dist = result.distance;
+  std::vector<int>& p_edge = result.p_edge;
 
-  [[nodiscard]] std::optional<std::vector<char>> Solve() const {
-    std::vector<char> result(n_);
-    const std::vector<int> scc = scc::FindSCC(g_);
-    for (int i = 0; i < n_; ++i) {
-      if (scc[i * 2] == scc[i * 2 + 1]) {
-        return std::nullopt;
+  while (!q.empty()) {
+    int v = q.poll();
+    for (int e_id : g[v]) {
+      const auto& edge = edges[e_id];
+      int to = v ^ edge.from ^ edge.to;
+      if (dist[edge.to] == SSSPInfo<int>::kUnreachableSentinel) {
+        q.push(to);
+        p_edge[to] = e_id;
+        dist[to] = dist[v] + 1;
       }
-      result[i] = static_cast<char>(scc[i * 2] < scc[i * 2 + 1]);
     }
-    return result;
   }
 
- private:
-  int n_;
-  Digraph g_;
-};
+  return result;
+}
 
-}  // namespace two_sat
+template <graph_traits::graph Graph>
+SSSPInfo<int> Bfs(const Graph& graph, int source) {
+  return Bfs(graph, std::vector<int>(1, source));
+}
+
+}  // namespace shortest_paths
 
 }  // namespace graphs
 
 void RunCase([[maybe_unused]] int testcase) {
-  {
-    std::string s;
-    std::cin >> s >> s;
-  }
-
   int n;
   int m;
-  std::cin >> n >> m;
-  graphs::two_sat::TwoSat ts(n, m);
+  int s;
+  int t;
+  std::cin >> n >> m >> s >> t;
+
+  graphs::WeightedDigraph<int> digraph(n, m);
   for (int i = 0; i < m; ++i) {
     int u;
     int v;
-    int z;
-    std::cin >> u >> v >> z;
-
-    int value_u{};
-    int value_v{};
-    if (u < 0) {
-      u = -(u + 1);
-      value_u = 0;
-    } else {
-      u = u - 1;
-      value_u = 1;
-    }
-    if (v < 0) {
-      v = -(v + 1);
-      value_v = 0;
-    } else {
-      v = v - 1;
-      value_v = 1;
-    }
-
-    ts.AddOrCondition(u, value_u, v, value_v);
+    int cost;
+    std::cin >> u >> v >> cost;
+    digraph.AddEdge(u, v, cost);
   }
 
-  const std::optional<std::vector<char>> result = ts.Solve();
-  if (!result.has_value()) {
-    std::cout << "s UNSATISFIABLE\n";
-  } else {
-    std::cout << "s SATISFIABLE\nv ";
-    for (int i = 0; i < n; ++i) {
-      std::cout << ((*result)[i] ? i + 1 : -(i + 1)) << " ";
+  const auto sp_info = graphs::shortest_paths::Dijkstra<int64_t>(digraph, s);
+  if (sp_info.distance[t] == decltype(sp_info)::kUnreachableSentinel) {
+    std::cout << "-1\n";
+    return;
+  }
+
+  std::vector<int> path = [&](int v) -> std::vector<int> {
+    std::vector<int> res;
+    res.reserve(n - 1);
+    int id = sp_info.p_edge[v];
+    while (id != -1) {
+      res.push_back(id);
+      const auto& edge = digraph.edge(id);
+      v = edge.from;
+      id = sp_info.p_edge[v];
     }
-    std::cout << "0\n";
+    std::ranges::reverse(res);
+    return res;
+  }(t);
+
+  std::cout << sp_info.distance[t] << " " << path.size() << "\n";
+  for (int id : path) {
+    const auto& edge = digraph.edge(id);
+    std::cout << edge.from << " " << edge.to << "\n";
   }
 }
 
