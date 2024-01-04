@@ -32,10 +32,7 @@
 *.app
 
 # Auxiliary files to test all this stuff
-main*
-.idea
-cmake-build-debug
+.idea/
+cmake-build-debug/
 CMakeLists.txt
-local_test*
-in.txt
-out.txt
+local_test/
