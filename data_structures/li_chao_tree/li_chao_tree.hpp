@@ -1,5 +1,9 @@
-#include <bits/stdc++.h>
+#include <limits>
+#include <numeric>
+#include <vector>
 
+namespace ds {
+namespace li_chao_tree {
 // Tree for dealing with linear functions
 // Supports line/segment insertion and min query at arbitrary point
 // Note: it actually consumes an enormous amount of memory (basically, $O(q \log
@@ -48,7 +52,7 @@ class LiChaoTree {
   T GetMin(int x, T left, T right, T point) {
     T result = lines_[x](point);
     while (left + 1 != right) {
-      const T middle = left + (right - left) / 2;
+      const T middle = std::midpoint(left, right);
       if (point < middle) {
         ExtendLeft(x);
         x = left_child_[x];
@@ -65,7 +69,7 @@ class LiChaoTree {
 
   void InsertLine(int x, T left, T right, Line line) {
     while (left + 1 != right) {
-      const T middle = left + (right - left) / 2;
+      const T middle = std::midpoint(left, right);
       const bool new_less_on_middle = line(middle) < lines_[x](middle);
       const bool new_less_on_left = line(left) < lines_[x](left);
       if (new_less_on_middle) {
@@ -94,7 +98,7 @@ class LiChaoTree {
       InsertLine(x, left, right, line);
       return;
     }
-    const T middle = left + (right - left) / 2;
+    const T middle = std::midpoint(left, right);
     if (segment_left < middle) {
       ExtendLeft(x);
       InsertSegment(left_child_[x], left, middle, segment_left, segment_right,
@@ -136,3 +140,6 @@ class LiChaoTree {
   T right_;
   int size_;
 };
+
+}  // namespace li_chao_tree
+}  // namespace ds

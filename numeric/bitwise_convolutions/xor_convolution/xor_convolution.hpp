@@ -1,6 +1,9 @@
 #include <type_traits>
 #include <vector>
 
+namespace numeric {
+namespace xor_convolution {
+
 template <typename T>
 void FWHT(std::vector<T>& v) {
   const int n = static_cast<int>(v.size());
@@ -33,3 +36,6 @@ std::vector<std::common_type_t<T, U>> XorConvolution(std::vector<T> lhs,
   }
   return result;
 }
+
+}  // namespace xor_convolution
+}  // namespace numeric

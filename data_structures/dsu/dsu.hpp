@@ -2,9 +2,10 @@
 #include <utility>
 #include <vector>
 
+namespace ds {
+namespace dsu {
 // Casual non-recursive dsu implementation (path compression + weight heuristic)
 // $O(\alpha(n))$ per query (amortized)
-
 class Dsu {
  public:
   explicit Dsu(int n) : weight_(n, 1), parent_(n) {
@@ -44,3 +45,6 @@ class Dsu {
   std::vector<int> weight_;
   mutable std::vector<int> parent_;
 };
+
+}  // namespace dsu
+}  // namespace ds

@@ -1,6 +1,5 @@
 #include <cstdint>
 #include <cstdlib>
-#include <numeric>
 #include <vector>
 
 namespace ds {
@@ -11,14 +10,6 @@ template <typename T, typename Comp>
 class RMQSolver {
  public:
   static constexpr int kBlockLength = 64;
-
-  RMQSolver()
-      : values_(0),
-        small_blocks_(),
-        blocks_table_(),
-        comp_(),
-        n_(0),
-        blocks_count_(0) {}
 
   template <typename U,
             std::enable_if_t<std::is_same_v<std::decay_t<U>, std::vector<T>>,
@@ -82,15 +73,15 @@ class RMQSolver {
 
     int result = first;
     if (first_r != 0) {
-      result = Merger(result, GetSmallBlock(first + kBlockLength - 1 - first_r,
+      result = Merge(result, GetSmallBlock(first + kBlockLength - 1 - first_r,
                                             kBlockLength - first_r));
       first_q += 1;
     }
     if (last_r != 0) {
-      result = Merger(result, GetSmallBlock(last - 1, last_r));
+      result = Merge(result, GetSmallBlock(last - 1, last_r));
     }
     if (first_q < last_q) {
-      result = Merger(result, GetOnBlocks(first_q, last_q));
+      result = Merge(result, GetOnBlocks(first_q, last_q));
     }
 
     return result;

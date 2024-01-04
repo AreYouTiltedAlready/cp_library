@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdint>
 
+namespace numeric {
 namespace ntt {
 namespace internal {
 
@@ -441,3 +442,4 @@ std::vector<int> ConvolutionArbitraryMod(const std::vector<T>& lhs,
 }
 
 }  // namespace ntt
+}  // namespace numeric

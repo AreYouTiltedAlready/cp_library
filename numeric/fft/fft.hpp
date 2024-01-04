@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <vector>
 
+namespace numeric {
+namespace fft {
 // Basic fft implementation
 // Note: in some problems you might be forces to use long double, not double
 // e.g. yosupo convolution mod with their 'fft-killer' tests
@@ -148,3 +150,6 @@ class FastFourierTransform {
   std::array<Complex, 1 << kLog> root_;
   std::array<int, 1 << kLog> inverse_;
 };
+
+}  // namespace fft
+}  // namespace numeric

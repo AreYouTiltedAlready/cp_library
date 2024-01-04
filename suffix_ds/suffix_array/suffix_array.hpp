@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+namespace suffix_ds {
+namespace suffix_array {
 // Thanks to AtCoder library - I'm too lazy to implement SA-IS by myself
 // This is just AtCoder library implementation with some minor changes (which
 // makes it consistent with my codestyle)
@@ -254,3 +256,6 @@ std::vector<int> LCPArray(const std::string& s, const std::vector<int>& sa) {
   }
   return LCPArray(s2, sa);
 }
+
+}  // namespace suffix_array
+}  // namespace suffix_ds

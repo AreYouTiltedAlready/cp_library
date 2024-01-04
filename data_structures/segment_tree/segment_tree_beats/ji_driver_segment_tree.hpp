@@ -1,5 +1,8 @@
 #include <vector>
 
+namespace ds {
+namespace segment_tree_beats {
+
 template <typename T>
 class JiDriverSegmentTree {
  public:
@@ -242,3 +245,6 @@ class JiDriverSegmentTree {
   int n_;
   std::vector<Node> tree_;
 };
+
+}  // namespace segment_tree_beats
+}  // namespace ds

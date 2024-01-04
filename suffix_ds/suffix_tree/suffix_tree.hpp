@@ -1,6 +1,8 @@
 #include <string>
 #include <vector>
 
+namespace suffix_ds {
+namespace suffix_tree {
 class SuffixTree {
  public:
   struct Node {
@@ -93,3 +95,6 @@ class SuffixTree {
   std::vector<int> tour_list_;
   std::vector<int> euler_tour_;
 };
+
+}  // namespace suffix_tree
+}  // namespace suffix_ds

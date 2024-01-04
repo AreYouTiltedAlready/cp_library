@@ -1,36 +1,9 @@
-#include <bits/stdc++.h>
+// #include "utils/simple_queue.hpp"
+#include <algorithm>
+#include <vector>
 
-namespace internal {
-
-// simple queue on vector
-// useful for constant speedup of bfs-based algorithms (e.g. dinic)
-template <typename T>
-class simple_queue {
- public:
-  simple_queue() : pos_(0), payload_({}) {}
-  explicit simple_queue(int n) : simple_queue() { reserve(n); }
-
-  void pop() { pos_++; }
-  void push(const T& value) { payload_.push_back(value); }
-  void push(T&& value) { payload_.push_back(std::forward<T>(value)); }
-  void reserve(int n) { payload_.reserve(n); }
-  int poll() { return payload_[pos_++]; }
-  int& front() { return payload_[pos_]; }
-
-  [[nodiscard]] int size() const noexcept {
-    return static_cast<int>(payload_.size()) - pos_;
-  }
-
-  [[nodiscard]] bool empty() const noexcept {
-    return pos_ == static_cast<int>(payload_.size());
-  }
-
- private:
-  int pos_;
-  std::vector<int> payload_;
-};
-
-}  // namespace internal
+namespace flows {
+namespace dinic {
 
 template <typename T>
 class FlowGraph {
@@ -135,7 +108,7 @@ class FlowGraph {
   }
 
   std::vector<int> MinCut() {
-    internal::simple_queue<int> que(n_);
+    ::utils::simple_queue<int> que(n_);
     std::vector<char> is_reachable(n_);
     que.push(source_);
     is_reachable[source_] = true;
@@ -192,7 +165,7 @@ class FlowGraph {
   }
 
   bool Bfs() {
-    internal::simple_queue<int> que(n_);
+    ::utils::simple_queue<int> que(n_);
     std::fill(edge_ptr_.begin(), edge_ptr_.end(), 0);
     std::fill(distance_.begin(), distance_.end(), -1);
 
@@ -224,3 +197,6 @@ class FlowGraph {
   const int source_;
   const int sink_;
 };
+
+}  // namespace dinic
+}  // namespace flows

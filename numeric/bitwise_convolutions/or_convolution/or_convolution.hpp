@@ -1,6 +1,9 @@
 #include <type_traits>
 #include <vector>
 
+namespace numeric {
+namespace or_convolution {
+
 template <typename T>
 void ZetaTransform(std::vector<T>& v) {
   const int n = static_cast<int>(v.size());
@@ -39,3 +42,6 @@ std::vector<std::common_type_t<T, U>> OrConvolution(std::vector<T> lhs,
   MobiusTransform(result);
   return result;
 }
+
+}  // namespace or_convolution
+}  // namespace numeric

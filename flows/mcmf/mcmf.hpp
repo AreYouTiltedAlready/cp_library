@@ -1,6 +1,9 @@
 #include <algorithm>
+#include <vector>
 #include <ext/pb_ds/priority_queue.hpp>
 
+namespace flows {
+namespace mcmf {
 // Calculates MCMF in $O(VE + |F|E\log V)
 // Uses Ford-Bellman for potentials initialization and Dijkstra on heap for
 // finding $s \rightarrow t$ paths.
@@ -14,17 +17,17 @@
 template <typename Flow, typename Cost>
 class MinCostFlowGraph {
  public:
-  using flow_t = F;
+  using flow_t = Flow;
   using cost_t = Cost;
 
   struct Edge {
     Edge() : cap(0), flow(0), cost(0), from(0), to(0) {}
-    Edge(int from, int to, F cap, C cost)
+    Edge(int from, int to, flow_t cap, cost_t cost)
         : cap(cap), flow(0), cost(cost), from(from), to(to) {}
 
-    F cap;
-    F flow;
-    C cost;
+    flow_t cap;
+    flow_t flow;
+    cost_t cost;
     int from;
     int to;
   };
@@ -95,7 +98,7 @@ class MinCostFlowGraph {
   }
 
   std::pair<flow_t, cost_t> MinCostFlow(
-      F flow_limit = std::numeric_limits<F>::max()) {
+      flow_t flow_limit = std::numeric_limits<flow_t>::max()) {
     flow_t flow = 0;
     cost_t cost = 0;
 
@@ -126,12 +129,13 @@ class MinCostFlowGraph {
           }
         }
       }
-      std::replace(pot_.begin(), pot_.end(), kUnreachable, static_cast<C>(0));
+      std::replace(pot_.begin(), pot_.end(), kUnreachable,
+                   static_cast<cost_t>(0));
     }
 
     FindPath();
     while (flow < flow_limit && distance_[sink_] != kUnreachable) {
-      F path_min = flow_limit - flow;
+      flow_t path_min = flow_limit - flow;
       int path_length = [&]() -> int {
         int id = 0;
         int v = sink_;
@@ -152,7 +156,7 @@ class MinCostFlowGraph {
         Edge& back_edge = edges_[path_[i] ^ 1];
         edge.flow += path_min;
         back_edge.flow -= path_min;
-        additional += e.cost;
+        additional += edge.cost;
       }
 
       cost += additional * path_min;
@@ -179,3 +183,6 @@ class MinCostFlowGraph {
   const int source_;
   const int sink_;
 };
+
+}  // namespace mcmf
+}  // namespace flows

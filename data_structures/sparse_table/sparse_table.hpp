@@ -1,6 +1,9 @@
 #include <cstdint>
 #include <vector>
 
+namespace ds {
+
+namespace sparse_table {
 // Basic cache-friendly implementation of sparse table
 // $Op$ might be just a pointer to function, if you want to pass lambda, you can
 // do something like:
@@ -44,3 +47,6 @@ class SparseTable {
  private:
   std::vector<std::vector<T>> matrix_;
 };
+
+}  // namespace sparse_table
+}  // namespace ds

@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <vector>
 
+namespace trees {
+namespace basic_hld {
 // Desription: Basic heavy-light decomposition stuff
 // Build time is $O(n)$
 // Lca, KthAncestor, LevelAncestor, KthNodeOnPath - all these functions work in
@@ -45,8 +47,7 @@ class BasicHLD {
     };
     Dfs(Dfs, root);
     for (int i = 0; i < n_; ++i) {
-      g_[i].erase(std::remove(g_[i].begin(), g_[i].end(), parent_[i]),
-                  g_[i].end());
+      std::erase(g_[i], parent_[i]);
       if (g_[i].empty()) {
         continue;
       }
@@ -136,3 +137,6 @@ class BasicHLD {
 
   int n_;
 };
+
+}  // namespace basic_hld
+}  // namespace trees

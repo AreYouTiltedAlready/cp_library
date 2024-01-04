@@ -1,11 +1,13 @@
-// https://judge.yosupo.jp/problem/lca
-// https://judge.yosupo.jp/submission/180869
+// Problem: https://judge.yosupo.jp/problem/lca
+// Submission: https://judge.yosupo.jp/submission/181700
 
 #include <algorithm>
 #include <bit>
 #include <cstdint>
+#include <functional>
 #include <iostream>
-#include <numeric>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -30,33 +32,25 @@ decltype(auto) y_combinator(Fun&& fun) {
   return y_combinator_result<std::decay_t<Fun>>(std::forward<Fun>(fun));
 }
 
+namespace ds {
 namespace rmq {
-
 namespace internal {
 
-enum class RMQMode {
-  kMax,
-  kMin,
-};
-
-template <typename T, RMQMode mode>
+template <typename T, typename Comp>
 class RMQSolver {
  public:
-  static constexpr uint32_t kBlockLength = 32;
-
-  RMQSolver()
-      : values_(0), small_blocks_(), blocks_table_(), n_(0), blocks_count_(0) {}
+  static constexpr int kBlockLength = 64;
 
   template <typename U,
             std::enable_if_t<std::is_same_v<std::decay_t<U>, std::vector<T>>,
                              void>* = nullptr>
   explicit RMQSolver(U&& values)
       : values_(std::forward<U>(values)),
-        small_blocks_(static_cast<int>(values_.size())),
+        small_blocks_(values_.size()),
+        comp_(),
         n_(static_cast<int>(values_.size())),
-        blocks_count_((static_cast<int>(values_.size()) + kBlockLength - 1) /
-                      kBlockLength) {
-    // building last 32 elements of monotonic stack for each index
+        blocks_count_((values_.size() + kBlockLength - 1) / kBlockLength) {
+    // building last 64 elements of monotonic stack for each index
     {
       std::vector<int> stack;
       stack.reserve(n_);
@@ -66,7 +60,7 @@ class RMQSolver {
         small_blocks_[i] = small_blocks_[i - 1] << 1;
         while (!stack.empty() && values_[stack.back()] >= values_[i]) {
           if (int d = i - stack.back(); d < kBlockLength) {
-            small_blocks_[i] ^= 1U << d;
+            small_blocks_[i] ^= static_cast<uint64_t>(1) << d;
           }
           stack.pop_back();
         }
@@ -84,17 +78,16 @@ class RMQSolver {
         blocks_table_[i].resize(blocks_count_ - (1 << i) + 1);
       }
       for (int i = 0; i < blocks_count_; ++i) {
-        blocks_table_[0][i] = static_cast<int>(i * kBlockLength);
+        blocks_table_[0][i] = i * kBlockLength;
       }
       for (int i = 0; i < n_; ++i) {
         blocks_table_[0][i / kBlockLength] =
-            Merger(blocks_table_[0][i / kBlockLength], i);
+            Merge(blocks_table_[0][i / kBlockLength], i);
       }
       for (int i = 1; i < blocks_log; ++i) {
         for (int j = 0; j < blocks_count_ - (1 << i) + 1; ++j) {
-          blocks_table_[i][j] =
-              Merger(blocks_table_[i - 1][j],
-                     blocks_table_[i - 1][j + (1 << (i - 1))]);
+          blocks_table_[i][j] = Merge(blocks_table_[i - 1][j],
+                                      blocks_table_[i - 1][j + (1 << (i - 1))]);
         }
       }
     }
@@ -103,21 +96,22 @@ class RMQSolver {
   [[nodiscard]] int GetIndex(int first, int last) const {
     auto [first_q, first_r] = std::div(first, kBlockLength);
     auto [last_q, last_r] = std::div(last, kBlockLength);
+
     if (first_q == last_q) {
       return GetSmallBlock(last - 1, last - first);
     }
 
     int result = first;
     if (first_r != 0) {
-      result = Merger(result, GetSmallBlock(first + kBlockLength - 1 - first_r,
-                                            kBlockLength - first_r));
+      result = Merge(result, GetSmallBlock(first + kBlockLength - 1 - first_r,
+                                           kBlockLength - first_r));
       first_q += 1;
     }
     if (last_r != 0) {
-      result = Merger(result, GetSmallBlock(last - 1, last_r));
+      result = Merge(result, GetSmallBlock(last - 1, last_r));
     }
     if (first_q < last_q) {
-      result = Merger(result, GetOnBlocks(first_q, last_q));
+      result = Merge(result, GetOnBlocks(first_q, last_q));
     }
 
     return result;
@@ -130,25 +124,25 @@ class RMQSolver {
  private:
   [[nodiscard]] inline int GetSmallBlock(int right, int length) const {
     return right + 1 -
-           std::bit_width(small_blocks_[right] & ((1U << length) - 1));
+           std::bit_width(small_blocks_[right] &
+                          ((static_cast<uint64_t>(1) << length) - 1));
   }
 
   [[nodiscard]] inline int GetOnBlocks(int first, int last) const {
     int level = std::bit_width(static_cast<uint32_t>(last - first)) - 1;
-    return Merger(blocks_table_[level][first],
-                  blocks_table_[level][last - (1 << level)]);
+    return Merge(blocks_table_[level][first],
+                 blocks_table_[level][last - (1 << level)]);
   }
 
-  [[nodiscard]] inline int Merger(int lhs, int rhs) const {
-    if constexpr (mode == RMQMode::kMin) {
-      return values_[lhs] < values_[rhs] ? lhs : rhs;
-    }
-    return values_[lhs] > values_[rhs] ? lhs : rhs;
+  [[nodiscard]] inline int Merge(int lhs, int rhs) const {
+    return comp_(values_[lhs], values_[rhs]) ? lhs : rhs;
   }
 
   std::vector<T> values_;
-  std::vector<uint32_t> small_blocks_;
+  std::vector<uint64_t> small_blocks_;
   std::vector<std::vector<int>> blocks_table_;
+
+  const Comp comp_;
 
   int n_;
   int blocks_count_;
@@ -157,15 +151,16 @@ class RMQSolver {
 }  // namespace internal
 
 template <typename T>
-using RMQMaxSolver = internal::RMQSolver<T, internal::RMQMode::kMax>;
+using RMQMinSolver = internal::RMQSolver<T, std::less<>>;
 
 template <typename T>
-using RMQMinSolver = internal::RMQSolver<T, internal::RMQMode::kMin>;
+using RMQMaxSolver = internal::RMQSolver<T, std::greater<>>;
 
 }  // namespace rmq
+}  // namespace ds
 
-namespace lca {
-
+namespace trees {
+namespace fast_lca {
 // Okay, this is just a generalization of basic hld (on top of hld, we maintain
 // euler tour for lca in $O(1))
 // Note: similar to hld, one must call Build() before queries
@@ -184,7 +179,7 @@ class LcaForest {
         depth_(n),
         parent_(n),
         g_(n),
-        rmq_solver_(),
+        rmq_solver_(nullptr),
         n_(n),
         tour_id_(0),
         euler_id_(0) {}
@@ -243,7 +238,7 @@ class LcaForest {
         euler_depths[i] = depth_[euler_[i]];
       }
     }
-    rmq_solver_ = rmq::RMQMinSolver<int>(std::move(euler_depths));
+    rmq_solver_ = new ds::rmq::RMQMinSolver<int>(std::move(euler_depths));
   }
 
   // IsAncestor(u, u) is true for all u
@@ -261,7 +256,7 @@ class LcaForest {
     if (entry_[u] > entry_[v]) {
       std::swap(u, v);
     }
-    return euler_[rmq_solver_.GetIndex(entry_[u], entry_[v] + 1)];
+    return euler_[rmq_solver_->GetIndex(entry_[u], entry_[v] + 1)];
   }
 
   // obviously, 0-indexed
@@ -293,6 +288,8 @@ class LcaForest {
     }
     return KthAncestor(v, du + dv - k);
   }
+
+  ~LcaForest() { delete rmq_solver_; }
 
  private:
   void SizeDfs(int v) {
@@ -333,21 +330,22 @@ class LcaForest {
   std::vector<int> depth_;
   std::vector<int> parent_;
   std::vector<std::vector<int>> g_;
-  rmq::RMQMinSolver<int> rmq_solver_;
+  ds::rmq::RMQMinSolver<int>* rmq_solver_;
 
   int n_;
   int tour_id_;
   int euler_id_;
 };
 
-}  // namespace lca
+}  // namespace fast_lca
+}  // namespace trees
 
 void RunCase([[maybe_unused]] int testcase) {
   int n;
   int q;
   std::cin >> n >> q;
 
-  lca::LcaForest lca_forest(n);
+  trees::fast_lca::LcaForest lca_forest(n);
   for (int i = 1; i < n; ++i) {
     int p;
     std::cin >> p;
@@ -370,6 +368,7 @@ void Main() {
     RunCase(tt);
   }
 }
+
 }  // namespace
 
 int main() {
