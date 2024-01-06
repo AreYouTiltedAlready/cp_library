@@ -137,10 +137,10 @@ class DynamicModInt : public internal::ModIntBase {
 }  // namespace dynamic_modint
 
 template <int kMod>
-using DynamicMInt = dynamic_modint::StaticModInt<int, kMod>;
+using DynamicMInt = dynamic_modint::DynamicModInt<int, kMod>;
 
 template <int64_t kMod>
-using DynamicMLong = dynamic_modint::StaticModInt<int64_t, kMod>;
+using DynamicMLong = dynamic_modint::DynamicModInt<int64_t, kMod>;
 
 }  // namespace modint
 }  // namespace modular

@@ -6,7 +6,7 @@ namespace suffix_tree {
 class SuffixTree {
  public:
   struct Node {
-    Node() : edges(), s_start(0), length(0), parent(0), weighted_depth(0) {}
+    Node() : s_start(0), length(0), parent(0), weighted_depth(0) {}
 
     std::vector<std::pair<int, int>> edges;
     int parent;
@@ -17,10 +17,9 @@ class SuffixTree {
 
   explicit SuffixTree(std::string s, const std::vector<int>& sa,
                       const std::vector<int>& lcp)
-      : n_(static_cast<int>(s.length())),
-        s_(std::move(s)),
-        tree_(2 * n_ + 2),
-        size_(2) {
+      : s_(std::move(s)),
+        tree_(s.length() * 2 + 2),
+        n_(static_cast<int>(s.length())) {
     int last = MakeNode(1, sa[0], n_ - sa[0]);
     tree_[1].edges.emplace_back(s_[sa[0]], last);
     for (int i = 1; i < n_; ++i) {
@@ -88,12 +87,13 @@ class SuffixTree {
     return next;
   }
 
-  int size_;
-  const int n_;
-  const std::string s_;
   std::vector<Node> tree_;
   std::vector<int> tour_list_;
   std::vector<int> euler_tour_;
+  std::string s_;
+
+  int size_{};
+  int n_;
 };
 
 }  // namespace suffix_tree

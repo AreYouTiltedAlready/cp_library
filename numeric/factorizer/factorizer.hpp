@@ -12,7 +12,7 @@ namespace math {
 
 class Factorizer {
  public:
-  explicit Factorizer(int n) : spf_(n + 1), primes_(), n_(n) {
+  explicit Factorizer(int n) : spf_(n + 1), n_(n) {
     primes_.reserve(2 * n / std::__lg(n + 1));
     std::iota(spf_.begin(), spf_.end(), 0);
 
