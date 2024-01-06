@@ -52,15 +52,15 @@ class GraphBase {
   [[nodiscard]] const std::vector<std::vector<int>>& g() const { return g_; }
 
  protected:
-  explicit GraphBase(int n, int m) : g_(n), edges_(), n_(n), m_(0) {
+  explicit GraphBase(int n, int m) : g_(n), edges_(), n_(n) {
     edges_.reserve(m);
   }
 
   std::vector<Edge> edges_;
   std::vector<std::vector<int>> g_;
 
-  const int n_;
-  int m_;
+  int n_;
+  int m_{};
 };
 
 template <edge Edge>

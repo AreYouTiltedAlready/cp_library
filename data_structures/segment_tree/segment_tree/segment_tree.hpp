@@ -2,7 +2,6 @@
 #include <bit>
 #include <cstdint>
 #include <functional>
-#include <ranges>
 #include <vector>
 
 namespace ds {
@@ -185,9 +184,9 @@ class SegmentTree {
   inline void Pull(int k) { tree_[k] = tree_[k << 1] + tree_[k << 1 | 1]; }
 
   std::vector<S> tree_;
-  const int n_;
-  const int size_;
-  const int log_;
+  int n_;
+  int size_;
+  int log_;
 };
 
 }  // namespace segment_tree

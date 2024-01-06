@@ -14,13 +14,8 @@ namespace li_chao_tree {
 template <typename T>
 class LiChaoTree {
  public:
-  explicit LiChaoTree(T left, T right, T queries_count = 0)
-      : lines_(),
-        left_child_(),
-        right_child_(),
-        left_(left),
-        right_(right),
-        size_(0) {
+  explicit LiChaoTree(T left, T right, int queries_count = 0)
+      : lines_(), left_(left), right_(right) {
     if (queries_count != 0) {
       const T lg = static_cast<T>(std::__lg(right - left + 1));
       lines_.reserve(queries_count * lg * lg);
@@ -40,11 +35,13 @@ class LiChaoTree {
   void InsertLine(T k, T b) { InsertLine(1, left_, right_, Line(k, b)); }
 
  private:
-  struct Line {
+  class Line {
+   public:
     explicit Line(T k = 0, T b = std::numeric_limits<T>::max()) : k(k), b(b) {}
 
     [[nodiscard]] T operator()(T x) const noexcept { return k * x + b; }
 
+   private:
     T k;
     T b;
   };
@@ -138,7 +135,7 @@ class LiChaoTree {
 
   T left_;
   T right_;
-  int size_;
+  int size_{};
 };
 
 }  // namespace li_chao_tree

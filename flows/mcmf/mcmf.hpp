@@ -1,6 +1,6 @@
 #include <algorithm>
-#include <vector>
 #include <ext/pb_ds/priority_queue.hpp>
+#include <vector>
 
 namespace flows {
 namespace mcmf {
@@ -180,8 +180,8 @@ class MinCostFlowGraph {
 
   int n_;
   int m_;
-  const int source_;
-  const int sink_;
+  int source_;
+  int sink_;
 };
 
 }  // namespace mcmf

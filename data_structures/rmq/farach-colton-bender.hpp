@@ -112,7 +112,7 @@ class RMQSolver {
   std::vector<uint64_t> small_blocks_;
   std::vector<std::vector<int>> blocks_table_;
 
-  const Comp comp_;
+  Comp comp_;
 
   int n_;
   int blocks_count_;
