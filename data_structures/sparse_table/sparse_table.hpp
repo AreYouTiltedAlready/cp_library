@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <type_traits>
 #include <vector>
 
 namespace ds {
@@ -19,9 +20,8 @@ class SparseTable {
       "Op must work as S(S, S)");
 
  public:
-  template <typename U,
-            std::enable_if_t<std::is_same_v<std::decay_t<U>, std::vector<T>>,
-                             void>* = nullptr>
+  template <typename U>
+  requires std::is_same_v<std::decay_t<U>, std::vector<T>>
   explicit SparseTable(U&& values) {
     const int n = static_cast<int>(values.size());  // n = 0 is not allowed
     const int log = std::bit_width(static_cast<uint32_t>(n));

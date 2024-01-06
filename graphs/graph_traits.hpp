@@ -1,12 +1,8 @@
-#include <algorithm>
-#include <optional>
 #include <vector>
 
 namespace graphs {
 
 namespace graph_traits {
-namespace internal {
-
 struct BasicEdge {
   BasicEdge() : from(0), to(0) {}
   BasicEdge(int from, int to) : from(from), to(to) {}
@@ -16,7 +12,7 @@ struct BasicEdge {
 };
 
 template <typename T>
-  requires std::is_arithmetic_v<T>
+requires std::is_arithmetic_v<T>
 struct WeightedEdge : public BasicEdge {
   using cost_t = T;
 
@@ -32,8 +28,8 @@ concept basic_edge = std::same_as<T, BasicEdge>;
 template <typename T>
 concept weighted_edge =
     std::is_base_of_v<BasicEdge, T> &&
-    std::same_as<
-        std::enable_if_t<std::is_arithmetic_v<typename T::cost_t>, void>, void>;
+    std::same_as < std::enable_if_t < std::is_arithmetic_v<typename T::cost_t>,
+void >, void > ;
 
 template <typename T>
 concept edge = basic_edge<T> || weighted_edge<T>;
@@ -47,7 +43,9 @@ class GraphBase {
 
   [[nodiscard]] int m() const { return m_; }
 
-  [[nodiscard]] const Edge& edge(int id) { return edges_[id]; }
+  [[nodiscard]] const Edge& edge(int id) const { return edges_[id]; }
+
+  Edge* mutable_edge(int id) { return &(edges_[id]); }
 
   [[nodiscard]] const std::vector<Edge>& edges() const { return edges_; }
 
@@ -79,7 +77,7 @@ class Digraph : public GraphBase<Edge, GraphType::kDirected> {
   explicit Digraph(int n, int m) : base(n, m) {}
 
   template <typename... Args>
-    requires std::is_constructible_v<edge_t, Args...>
+  requires std::is_constructible_v<edge_t, Args...>
   void AddEdge(Args&&... args) {
     int id = m_++;
     edges_.emplace_back(std::forward<Args>(args)...);
@@ -100,7 +98,7 @@ class Graph : public GraphBase<Edge, GraphType::kUndirected> {
   explicit Graph(int n, int m) : base(n, m) {}
 
   template <typename... Args>
-    requires std::is_constructible_v<edge_t, Args...>
+  requires std::is_constructible_v<edge_t, Args...>
   void AddEdge(Args&&... args) {
     int id = m_++;
     edges_.emplace_back(std::forward<Args>(args)...);
@@ -110,17 +108,15 @@ class Graph : public GraphBase<Edge, GraphType::kUndirected> {
 };
 
 template <typename T>
-concept has_edge_t =
-    std::same_as<std::enable_if_t<edge<typename T::edge_t>, void>, void>;
+concept has_edge_t = std::same_as < std::enable_if_t < edge<typename T::edge_t>,
+void >, void > ;
 
 template <typename T>
-concept undirected_graph =
-    has_edge_t<T> &&
+concept undirected_graph = has_edge_t<T> &&
     std::is_base_of_v<GraphBase<typename T::edge_t, GraphType::kUndirected>, T>;
 
 template <typename T>
-concept directed_graph =
-    has_edge_t<T> &&
+concept directed_graph = has_edge_t<T> &&
     std::is_base_of_v<GraphBase<typename T::edge_t, GraphType::kDirected>, T>;
 
 template <typename T>
@@ -129,17 +125,15 @@ concept weighted_graph = has_edge_t<T> && weighted_edge<typename T::edge_t>;
 template <typename T>
 concept graph = undirected_graph<T> || directed_graph<T>;
 
-}  // namespace internal
-
-using Undigraph = internal::Graph<internal::BasicEdge>;
-using Digraph = internal::Digraph<internal::BasicEdge>;
-
-template <typename Cost>
-using WeightedUndigraph = internal::Graph<internal::WeightedEdge<Cost>>;
-
-template <typename Cost>
-using WeightedDigraph = internal::Digraph<internal::WeightedEdge<Cost>>;
-
 }  // namespace graph_traits
+
+using Undigraph = graph_traits::Graph<graph_traits::BasicEdge>;
+using Digraph = graph_traits::Digraph<graph_traits::BasicEdge>;
+
+template <typename Cost>
+using WeightedUndigraph = graph_traits::Graph<graph_traits::WeightedEdge<Cost>>;
+
+template <typename Cost>
+using WeightedDigraph = graph_traits::Digraph<graph_traits::WeightedEdge<Cost>>;
 
 }  // namespace graphs

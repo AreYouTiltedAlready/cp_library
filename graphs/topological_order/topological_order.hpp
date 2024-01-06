@@ -1,5 +1,5 @@
 #include <optional>
-// #include "graphs/template.hpp"
+// #include "graphs/graph_traits.hpp"
 // #include "utils/simple_queue.hpp"
 
 namespace graphs {

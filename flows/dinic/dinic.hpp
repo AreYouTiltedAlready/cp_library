@@ -51,13 +51,13 @@ class FlowGraph {
     }
     flow_t max_flow = 0;
     while (residual_limit_ > 0) {
-      max_flow += MaxFlow();
+      max_flow += Flow();
       residual_limit_ /= 2;
     }
     return max_flow;
   }
 
-  flow_t MaxFlow(flow_t flow_limit = std::numeric_limits<flow_t>::max()) {
+  flow_t Flow(flow_t flow_limit = std::numeric_limits<flow_t>::max()) {
     flow_t max_flow = 0;
     while (Bfs() && max_flow < flow_limit) {
       flow_t augment = 0;
