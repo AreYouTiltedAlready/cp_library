@@ -28,7 +28,7 @@ class RMQSolver {
       small_blocks_[0] = 1;
       for (int i = 1; i < n_; ++i) {
         small_blocks_[i] = small_blocks_[i - 1] << 1;
-        while (!stack.empty() && values_[stack.back()] >= values_[i]) {
+        while (!stack.empty() && !comp_(values_[stack.back()], values_[i])) {
           if (int d = i - stack.back(); d < kBlockLength) {
             small_blocks_[i] ^= static_cast<uint64_t>(1) << d;
           }
@@ -74,7 +74,7 @@ class RMQSolver {
     int result = first;
     if (first_r != 0) {
       result = Merge(result, GetSmallBlock(first + kBlockLength - 1 - first_r,
-                                            kBlockLength - first_r));
+                                           kBlockLength - first_r));
       first_q += 1;
     }
     if (last_r != 0) {
