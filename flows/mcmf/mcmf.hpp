@@ -42,7 +42,7 @@ class MinCostFlowGraph {
         heap_(),
         its_(n),
         n_(n),
-        m_(m),
+        m_(0),
         source_(source),
         sink_(sink) {}
 
@@ -68,17 +68,18 @@ class MinCostFlowGraph {
     its_[source_] = heap_.push(std::make_pair(0, source_));
     while (!heap_.empty()) {
       auto [d, v] = heap_.top();
+      its_[v] = heap_.end();
       heap_.pop();
       for (int e_id : g_[v]) {
         const Edge& edge = edges_[e_id];
         if (edge.cap == edge.flow) {
           continue;
         }
-        if (cost_t new_cost = -d + edge.cost + pot_[edge.from] - pot_[edge.to];
+        if (cost_t new_cost = d + edge.cost + pot_[edge.from] - pot_[edge.to];
             new_cost < distance_[edge.to]) {
           sp_edge_[edge.to] = e_id;
           distance_[edge.to] = new_cost;
-          auto new_pair = std::make_pair(-new_cost, edge.to);
+          auto new_pair = std::make_pair(new_cost, edge.to);
           if (its_[edge.to] == heap_.end()) {
             its_[edge.to] = heap_.push(new_pair);
           } else {
@@ -102,35 +103,16 @@ class MinCostFlowGraph {
     flow_t flow = 0;
     cost_t cost = 0;
 
-    const bool negative_edges = [&]() -> bool {
-      for (int i = 0; i < edges_.size() / 2; ++i) {
-        if (edges_[i * 2].cost < 0) {
-          return true;
-        }
-      }
-      return false;
-    }();
-
-    if (negative_edges) {
-      std::fill(pot_.begin(), pot_.end(), kUnreachable);
-      pot_[source_] = 0;
-      bool any = true;
-      while (any) {
-        any = false;
-        for (int i = 0; i < static_cast<int>(edges_.size()); i += 2) {
-          const Edge& edge = edges_[i];
-          if (pot_[edge.from] == kUnreachable) {
-            continue;
+    if (bool negative_edges = [&]() -> bool {
+          for (int i = 0; i < edges_.size() / 2; ++i) {
+            if (edges_[i * 2].cost < 0) {
+              return true;
+            }
           }
-          if (cost_t new_cost = pot_[edge.from] + edge.cost;
-              new_cost < pot_[edge.to]) {
-            any = true;
-            pot_[edge.to] = new_cost;
-          }
-        }
-      }
-      std::replace(pot_.begin(), pot_.end(), kUnreachable,
-                   static_cast<cost_t>(0));
+          return false;
+        }();
+        negative_edges) {
+      InitializePotentials();
     }
 
     FindPath();
@@ -167,6 +149,28 @@ class MinCostFlowGraph {
   }
 
  private:
+  void InitializePotentials() {
+    std::fill(pot_.begin(), pot_.end(), kUnreachable);
+    pot_[source_] = 0;
+    bool any = true;
+    while (any) {
+      any = false;
+      for (int i = 0; i < static_cast<int>(edges_.size()); i += 2) {
+        const Edge& edge = edges_[i];
+        if (pot_[edge.from] == kUnreachable) {
+          continue;
+        }
+        if (cost_t new_cost = pot_[edge.from] + edge.cost;
+            new_cost < pot_[edge.to]) {
+          any = true;
+          pot_[edge.to] = new_cost;
+        }
+      }
+    }
+    std::replace(pot_.begin(), pot_.end(), kUnreachable,
+                 static_cast<cost_t>(0));
+  }
+
   static constexpr cost_t kUnreachable = std::numeric_limits<cost_t>::max() / 2;
 
   std::vector<Edge> edges_;
@@ -175,7 +179,7 @@ class MinCostFlowGraph {
   std::vector<int> path_;
   std::vector<int> sp_edge_;
   std::vector<std::vector<int>> g_;
-  __gnu_pbds::priority_queue<std::pair<cost_t, int>> heap_;
+  __gnu_pbds::priority_queue<std::pair<cost_t, int>, std::greater<>> heap_;
   std::vector<typename decltype(heap_)::point_iterator> its_;
 
   int n_;
