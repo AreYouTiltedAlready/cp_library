@@ -1,4 +1,4 @@
-// #include "modular/barrett.hpp"
+// #include "modular/montgomery.hpp"
 
 #include <array>
 #include <bit>
@@ -12,110 +12,177 @@ namespace math {
 
 class Factorizer {
  public:
-  explicit Factorizer(int n) : spf_(n + 1), n_(n) {
-    primes_.reserve(2 * n / std::__lg(n + 1));
-    std::iota(spf_.begin(), spf_.end(), 0);
-
-    for (int i = 2; i <= n; ++i) {
-      if (spf_[i] == i) {
-        primes_.push_back(i);
+  constexpr Factorizer() : spf_(), primes_(), magic_() {
+    spf_[1] = 1;
+    for (int i = 2; i <= kSieveBound; ++i) {
+      if (spf_[i] == 0) {
+        spf_[i] = i;
+        primes_[primes_count_] = i;
+        magic_[primes_count_] = static_cast<uint64_t>(-1) / i + 1;
+        primes_count_ += 1;
       }
-      for (int p : primes_) {
-        if (p > spf_[i]) {
+      for (int j = 0; j < primes_count_; ++j) {
+        if (primes_[j] > spf_[i]) {
           break;
         }
-        int64_t next = static_cast<int64_t>(p) * i;
-        if (next > n) {
+        if (auto next = static_cast<int64_t>(primes_[j]) * i;
+            next <= kSieveBound) {
+          spf_[next] = primes_[j];
+        } else {
           break;
         }
-        spf_[next] = p;
       }
     }
   }
 
-  template <typename T>
-  std::map<T, int> Factorize(T n) {
+  template <modular::unsigned_int_or_int64 T>
+  std::vector<std::pair<T, int>> Factorize(T n) const {
     if (n == 1) {
       return {};
     }
-    if (IsPrime(n)) {
+
+    if (n < (1 << 30)) {
+      if (IsPrime(static_cast<int>(n))) {
+        return {{n, 1}};
+      }
+
+      if (n <= kSieveBound) {
+        return FactorizeSmall(n);
+      }
+      return FactorizeMedium(n);
+    }
+
+    if (IsPrime(static_cast<int64_t>(n))) {
       return {{n, 1}};
     }
-    if (n <= n_) {
-      std::map<T, int> res;
-      while (n != 1) {
-        res[spf_[n]] += 1;
-        n /= spf_[n];
-      }
-      return res;
-    }
+
     T divisor = PollardRho(n);
-    auto left = Factorize(divisor);
-    auto right = Factorize(n / divisor);
-    if (left.size() < right.size()) {
-      std::swap(left, right);
-    }
-    for (const auto& [p, q] : right) {
-      left[p] += q;
-    }
-    return left;
+    return MergeFactors(Factorize(divisor), Factorize(n / divisor));
   }
 
-  static bool IsPrime(int n) { return IsPrime<int>(n, {2, 7, 61}); }
+  static bool IsPrime(int n) {
+    return n > 0 && IsPrime<uint32_t>(n, {2, 7, 61});
+  }
+
   static bool IsPrime(int64_t n) {
-    return IsPrime<int64_t>(n,
-                            {2, 325, 9375, 28178, 450775, 9780504, 1795265022});
+    return n > 0 && IsPrime<uint64_t>(
+                        n, {2, 325, 9375, 28178, 450775, 9780504, 1795265022});
   }
 
  private:
-  static inline std::mt19937_64 rng = std::mt19937_64(
+  template <std::integral T>
+  [[nodiscard]] std::vector<std::pair<T, int>> FactorizeSmall(T n) const {
+    std::vector<std::pair<T, int>> result{};
+    while (n != 1) {
+      int d = spf_[n];
+      int count = 0;
+      while (n % d == 0) {
+        n /= d;
+        count += 1;
+      }
+      result.emplace_back(d, count);
+    }
+    return result;
+  }
+
+  template <std::integral T>
+  [[nodiscard]] std::vector<std::pair<T, int>> FactorizeMedium(T n) const {
+    auto unsigned_n = static_cast<uint32_t>(n);
+    std::vector<std::pair<T, int>> result{};
+    for (int i = 0; i < primes_count_ && primes_[i] <= unsigned_n; ++i) {
+      if (magic_[i] * unsigned_n >= magic_[i]) {
+        continue;
+      }
+      int d = primes_[i];
+      int count = 0;
+      while (magic_[i] * unsigned_n < magic_[i]) {
+        unsigned_n /= d;
+        count += 1;
+      }
+      result.emplace_back(d, count);
+    }
+    if (unsigned_n != 1) {
+      result.emplace_back(static_cast<T>(unsigned_n), 1);
+    }
+    return result;
+  }
+
+  template <std::integral T>
+  static std::vector<std::pair<T, int>> MergeFactors(
+      const std::vector<std::pair<T, int>>& lhs,
+      const std::vector<std::pair<T, int>>& rhs) {
+    auto lhs_it = lhs.cbegin();
+    auto rhs_it = rhs.cbegin();
+    std::vector<std::pair<T, int>> result{};
+    result.reserve(lhs.size() + rhs.size());
+    while (lhs_it != lhs.cend() && rhs_it != rhs.cend()) {
+      if ((*lhs_it).first == (*rhs_it).first) {
+        result.emplace_back((*lhs_it).first,
+                            (*lhs_it).second + (*rhs_it).second);
+        ++lhs_it;
+        ++rhs_it;
+      } else if ((*lhs_it).first < (*rhs_it).first) {
+        result.push_back(*lhs_it);
+        ++lhs_it;
+      } else {
+        result.push_back(*rhs_it);
+        ++rhs_it;
+      }
+    }
+    while (lhs_it != lhs.cend()) {
+      result.push_back(*lhs_it);
+      ++lhs_it;
+    }
+    while (rhs_it != rhs.cend()) {
+      result.push_back(*rhs_it);
+      ++rhs_it;
+    }
+    return result;
+  }
+
+  static inline std::mt19937_64 gen = std::mt19937_64(
       std::chrono::steady_clock::now().time_since_epoch().count());
 
-  template <typename T>
-  T PollardRho(T n) {
-    for (T p : {2, 3, 5, 7, 11, 13, 17, 19, 23, 29}) {
+  static uint64_t PollardRho(uint64_t n) {
+    for (int p : {2, 3, 5, 7, 11, 13, 17, 19, 23, 29}) {
       if (n % p == 0) {
         return p;
       }
     }
 
-    using unsigned_t = std::make_unsigned_t<T>;
-    const modular::barrett::Barrett<unsigned_t> barrett(n);
-
-    unsigned_t increment{};
-    auto g = [&](unsigned_t x) -> unsigned_t {
-      x = barrett.Product(x, x);
-      if ((x += increment) >= n) {
-        x -= n;
-      }
-      return x;
+    uint64_t increment{};
+    const modular::montgomery::MontgomerySpace<uint64_t> space(n);
+    auto g = [&](uint64_t x) -> uint64_t {
+      return space.Sum(space.Product(x, x), increment);
     };
 
     const auto jump = static_cast<int>((sqrtl(logl(n) * sqrtl(sqrtl(n)))));
     while (true) {
-      increment = rng() % n;
-      unsigned_t start = rng() % n;
-      unsigned_t x = start;
-      unsigned_t y = start;
-      unsigned_t result_gcd{};
-      std::vector<unsigned_t> products(jump + 1);
-      do {
-        products[0] = 1;
+      increment = space.Transform(gen() % n);
+      uint64_t start = space.Transform(gen() % n);
+      uint64_t x = start;
+      uint64_t y = start;
+      std::vector<uint64_t> products(jump + 1);
+
+      uint64_t result_gcd = 1;
+      while (result_gcd == 1) {
+        products[0] = space.Unit();
         for (int i = 1; i <= jump; ++i) {
           x = g(x);
           y = g(g(y));
-          products[i] = barrett.Product(products[i - 1], x < y ? y - x : x - y);
+          products[i] = space.Product(products[i - 1], x < y ? y - x : x - y);
         }
-      } while ((result_gcd =
-                    std::gcd(products[jump], static_cast<unsigned_t>(n))) == 1);
+        result_gcd = std::gcd(space.Reduce(products.back()), n);
+      }
+
       if (result_gcd == n) {
-        assert(products.back() == 0);
         int index = jump;
-        while (index > 0 && products[index] == 0) {
+        while (index > 0 && space.TestEquality(products[index], 0)) {
           index -= 1;
         }
-        result_gcd = std::gcd(products[index], static_cast<unsigned_t>(n));
+        result_gcd = std::gcd(space.Reduce(products[index]), n);
       }
+
       if (result_gcd != n && result_gcd != 1) {
         return result_gcd;
       }
@@ -140,39 +207,27 @@ class Factorizer {
     }
 
     using unsigned_t = std::make_unsigned_t<T>;
-    const modular::barrett::Barrett<unsigned_t> barrett(n);
+    const modular::montgomery::MontgomerySpace<unsigned_t> space(n);
     const int rank =
         std::countr_zero(static_cast<std::make_unsigned_t<T>>(n - 1));
     const T d = (n - 1) >> rank;
-
-    auto Power = [&barrett](unsigned_t x, unsigned_t n) -> unsigned_t {
-      unsigned_t res = 1;
-      while (n > 0) {
-        if (n % 2 == 1) {
-          res = barrett.Product(res, x);
-        }
-        x = barrett.Product(x, x);
-        n /= 2;
-      }
-      return res;
-    };
 
     for (T base : bases) {
       T base_mod = base % n;
       if (base_mod == 0) {
         continue;
       }
-      base_mod = Power(base_mod, d);
-      if (base_mod == 1) {
+      base_mod = space.Power(space.Transform(base_mod), d);
+      if (space.TestEquality(base_mod, space.Unit())) {
         continue;
       }
       bool witness = true;
       for (int i = 0; i < rank; ++i) {
-        if (base_mod == n - 1) {
+        if (space.TestEquality(base_mod, space.NegUnit())) {
           witness = false;
           break;
         }
-        base_mod = barrett.Product(base_mod, base_mod);
+        base_mod = space.Product(base_mod, base_mod);
       }
       if (witness) {
         return false;
@@ -182,10 +237,12 @@ class Factorizer {
     return true;
   }
 
-  std::vector<int> spf_;
-  std::vector<int> primes_;
+  static constexpr int kSieveBound = 1 << 16;
 
-  int n_;
+  std::array<int, kSieveBound + 1> spf_;
+  std::array<int, kSieveBound + 1> primes_;
+  std::array<uint64_t, kSieveBound + 1> magic_;
+  int primes_count_{};
 };
 
 }  // namespace math
