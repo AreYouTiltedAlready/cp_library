@@ -1,7 +1,7 @@
 Diagnostics:
   ClangTidy:
     Add: '*'
-    Remove: ['llvmlibc*', 'fuchsia*', 'altera*', 'readability-identifier-length', '*pointer-arithmetic*', '*magic-numbers*', 'reinterpret-cast*', 'modernize-use-trailing-return-type', 'bugprone-easily-swappable-parameters', '*non-private-member-variables*', '*reinterpret-cast*', '*signed-bitwise*']
+    Remove: ['llvmlibc*', 'fuchsia*', 'altera*', '*no-recursion*', '*constant-array-index*', 'readability-identifier-length', '*pointer-arithmetic*', '*magic-numbers*', 'reinterpret-cast*', 'modernize-use-trailing-return-type', 'bugprone-easily-swappable-parameters', '*non-private-member-variables*', '*reinterpret-cast*', '*signed-bitwise*']
     CheckOptions:
       modernize-loop-convert.MinConfidence: reasonable
       modernize-replace-auto-ptr.IncludeStyle: llvm
